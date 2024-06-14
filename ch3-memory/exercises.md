@@ -33,3 +33,8 @@ same-row DRAM access optimization, and maybe some from N+1 fetching.
 
 [Agner's docs](https://agner.org/optimize/microarchitecture.pdf)
 indicate that the true line size for this microarch (Coffee Lake) is 64B.
+
+
+## Exercise 2
+**In the first part of `mystery2.cc` that looks at cache line size timings,
+explain a little about the three timings for a possible line size of 256B.**
