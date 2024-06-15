@@ -181,6 +181,32 @@ double MeasureImul(Args* args, size_t n_iterations, bool print_stats) {
 	return cy_per_iter;
 }
 
+double MeasureDiv(Args* args, size_t n_iterations, bool print_stats) {
+	// Get bits unknown by the compiler to avoid precalculating the product.
+	// Mark volatile to avoid turning the loop into an imul.
+	volatile uint64_t iter = time(NULL) & 0xff;
+	uint64_t prod = 1;
+
+	int64_t start_cy = __rdtsc();
+	for (size_t i = 0; i < n_iterations; ++i) {
+		prod /= iter;
+	}
+	int64_t stop_cy = __rdtsc();
+	int64_t cy_elapsed = stop_cy - start_cy;
+
+	double cy_elapsed_adjusted = cy_elapsed * args->clock_multiplier;
+	double cy_per_iter = cy_elapsed_adjusted / n_iterations;
+
+	if (print_stats) {
+		PrintStats("DIV", n_iterations, cy_elapsed, cy_elapsed_adjusted, cy_per_iter);
+	}
+
+	// Mark prod and iter live.
+	if (NeverTrue()) fprintf(stdout, "%lu %lu\n", prod, iter);
+
+	return cy_per_iter;
+}
+
 void FindBestNIterations(Args* args) {
 	const int tries_per_iter = 100;
 	fprintf(stdout, "tries per iter: %d\n", tries_per_iter);
@@ -225,6 +251,7 @@ int main(int argc, char** argv) {
 	const size_t N_ITERATIONS = 10 * 1000 * 1000;
 	MeasureAdd(&args, N_ITERATIONS, /*print_stats=*/true);
 	MeasureImul(&args, N_ITERATIONS, /*print_stats=*/true);
+	MeasureDiv(&args, N_ITERATIONS, /*print_stats=*/true);
 
 	return 0;
 }
