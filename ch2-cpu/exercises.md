@@ -157,3 +157,20 @@ timer cycles `1-10ms`.
 
 The remaining variation might be due to hyperthreading? Not sure.
 
+
+## Exercise 7
+**Write down your order-of-magnitude estimates of the latency in cycles for
+64-bit integer multiply and divide and double-precision floating-point add,
+multiply, and divide.**
+
+**You actually know these. For example, multiplies are likely to consume at
+least one bit of multiplicand per cycle, so are unlikely to take more than 64
+cycles plus a little startup time. Similarly, divides are likely to produce at
+least one bit of quotient per cycle. Either may in fact process 2, 3, or 4 bits
+per cycle.**
+
+- imul: O(10-100) - 64b / 1-4b per cycle
+- idiv: O(10-100) - 64b / 1-4b per cycle
+- fadd: O(1) - 13b shift + iadd + max
+- fmul: O(10) - 50b add + 14b mul + adjust
+- fdiv: O(10) - 50b sub + 14b div + adjust
