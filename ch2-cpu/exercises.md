@@ -174,3 +174,22 @@ per cycle.**
 - fadd: O(1) - 13b shift + iadd + max
 - fmul: O(10) - 50b add + 14b mul + adjust
 - fdiv: O(10) - 50b sub + 14b div + adjust
+
+
+## Exercise 8
+**Add code to your mystery1.cc to measure the latency of 64-bit integer
+multiply and divide and double-precision add, multiply, and divide. Write down
+the five numeric answers.**
+
+**You might want to reduce the number of loop iterations by 10x or so, based on
+what you learned in Exercise 2.6. For the floating-point calculations, keep
+your data values away from the extremes of overflow/underflow, but also not
+exactly 1.0 or 0.0.**
+
+
+## Exercise 9 (optional)
+**Deliberately have your double-precision multiply and divide loops above drift
+into overflow and underflow ranges for the data values (i.e., larger than
+10**306 or less than 1/10**306 for IEEE double-precision), printing out the
+observed latency perhaps every 10,000 iterations. If the cycle latencies
+suddenly change, explain what is going on.**
