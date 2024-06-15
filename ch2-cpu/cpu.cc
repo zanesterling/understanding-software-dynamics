@@ -325,19 +325,94 @@ void FindBestNIterations(Args* args) {
 	}
 }
 
+void MeasureFmulOverflow(Args* args) {
+	fprintf(stdout, "Overflow:\n");
+	volatile double iter = 1.01;
+	double product = 1;
+
+	const int INNER_ITERS = 10 * 1000;
+	int64_t last_cy = __rdtsc();
+	for (int outer = 0; outer < 10; ++outer) {
+		double start_val = product;
+		int64_t start_cy = __rdtsc();
+		for (int inner = 0; inner < INNER_ITERS; ++inner) {
+			product *= iter;
+		}
+		int64_t stop_cy = __rdtsc();
+		int64_t elapsed = (stop_cy - start_cy) * args->clock_multiplier;
+		double cy_per_op = 1. * elapsed / INNER_ITERS;
+		fprintf(stdout, "  %#11.3e - %#11.3e: %f cy/op\n", start_val, product, cy_per_op);
+	}
+	fprintf(stdout, "\n");
+
+	product = -1;
+	last_cy = __rdtsc();
+	for (int outer = 0; outer < 10; ++outer) {
+		double start_val = product;
+		int64_t start_cy = __rdtsc();
+		for (int inner = 0; inner < INNER_ITERS; ++inner) {
+			product *= iter;
+		}
+		int64_t stop_cy = __rdtsc();
+		int64_t elapsed = (stop_cy - start_cy) * args->clock_multiplier;
+		double cy_per_op = 1. * elapsed / INNER_ITERS;
+		fprintf(stdout, "  %#11.3e - %#11.3e: %f cy/op\n", start_val, product, cy_per_op);
+	}
+	fprintf(stdout, "\n");
+}
+
+void MeasureFmulUnderflow(Args* args) {
+	fprintf(stdout, "Underflow:\n");
+	volatile double iter = 0.99;
+	double product = 1;
+
+	const int INNER_ITERS = 10 * 1000;
+	int64_t last_cy = __rdtsc();
+	for (int outer = 0; outer < 10; ++outer) {
+		double start_val = product;
+		int64_t start_cy = __rdtsc();
+		for (int inner = 0; inner < INNER_ITERS; ++inner) {
+			product *= iter;
+		}
+		int64_t stop_cy = __rdtsc();
+		int64_t elapsed = (stop_cy - start_cy) * args->clock_multiplier;
+		double cy_per_op = 1. * elapsed / INNER_ITERS;
+		fprintf(stdout, "  %#11.3e - %#11.3e: %f cy/op\n", start_val, product, cy_per_op);
+	}
+	fprintf(stdout, "\n");
+
+	product = -1;
+	last_cy = __rdtsc();
+	for (int outer = 0; outer < 10; ++outer) {
+		double start_val = product;
+		int64_t start_cy = __rdtsc();
+		for (int inner = 0; inner < INNER_ITERS; ++inner) {
+			product *= iter;
+		}
+		int64_t stop_cy = __rdtsc();
+		int64_t elapsed = (stop_cy - start_cy) * args->clock_multiplier;
+		double cy_per_op = 1. * elapsed / INNER_ITERS;
+		fprintf(stdout, "  %#11.3e - %#11.3e: %f cy/op\n", start_val, product, cy_per_op);
+	}
+	fprintf(stdout, "\n");
+}
+
 int main(int argc, char** argv) {
 	Args args = ParseArgs(argc, argv);
 
 	// FindBestNIterations(&args);
 
 	// Measured to be good on my system.
-	const size_t N_ITERATIONS = 10 * 1000 * 1000;
-	MeasureAdd(&args, N_ITERATIONS, /*print_stats=*/true);
-	MeasureImul(&args, N_ITERATIONS, /*print_stats=*/true);
-	MeasureDiv(&args, N_ITERATIONS, /*print_stats=*/true);
-	MeasureFadd(&args, N_ITERATIONS, /*print_stats=*/true);
-	MeasureFmul(&args, N_ITERATIONS, /*print_stats=*/true);
-	MeasureFdiv(&args, N_ITERATIONS, /*print_stats=*/true);
+	// const size_t N_ITERATIONS = 10 * 1000 * 1000;
+	// MeasureAdd(&args, N_ITERATIONS, /*print_stats=*/true);
+	// MeasureImul(&args, N_ITERATIONS, /*print_stats=*/true);
+	// MeasureDiv(&args, N_ITERATIONS, /*print_stats=*/true);
+	// MeasureFadd(&args, N_ITERATIONS, /*print_stats=*/true);
+	// MeasureFmul(&args, N_ITERATIONS, /*print_stats=*/true);
+	// MeasureFdiv(&args, N_ITERATIONS, /*print_stats=*/true);
+
+	MeasureFmulOverflow(&args);
+	MeasureFmulUnderflow(&args);
 
 	return 0;
 }

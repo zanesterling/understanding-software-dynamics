@@ -207,3 +207,61 @@ into overflow and underflow ranges for the data values (i.e., larger than
 10**306 or less than 1/10**306 for IEEE double-precision), printing out the
 observed latency perhaps every 10,000 iterations. If the cycle latencies
 suddenly change, explain what is going on.**
+
+Results:
+```
+$ gcc -O2 cpu.cc -lm && ./a.out -t 4.78 -b 3.6
+Overflow:
+    1.000e+00 -   1.636e+43: 4.052900 cy/op
+    1.636e+43 -   2.676e+86: 4.038300 cy/op
+    2.676e+86 -  4.377e+129: 4.037500 cy/op
+   4.377e+129 -  7.161e+172: 4.038000 cy/op
+   7.161e+172 -  1.171e+216: 4.038500 cy/op
+   1.171e+216 -  1.916e+259: 4.038000 cy/op
+   1.916e+259 -  3.134e+302: 4.038000 cy/op
+   3.134e+302 -         inf: 4.038300 cy/op
+          inf -         inf: 4.038300 cy/op
+          inf -         inf: 4.038000 cy/op
+
+   -1.000e+00 -  -1.636e+43: 4.038000 cy/op
+   -1.636e+43 -  -2.676e+86: 4.040400 cy/op
+   -2.676e+86 - -4.377e+129: 4.038500 cy/op
+  -4.377e+129 - -7.161e+172: 4.037500 cy/op
+  -7.161e+172 - -1.171e+216: 4.037500 cy/op
+  -1.171e+216 - -1.916e+259: 4.037500 cy/op
+  -1.916e+259 - -3.134e+302: 4.037500 cy/op
+  -3.134e+302 -        -inf: 4.038300 cy/op
+         -inf -        -inf: 4.038500 cy/op
+         -inf -        -inf: 4.038300 cy/op
+
+Underflow:
+    1.000e+00 -   2.249e-44: 4.042800 cy/op
+    2.249e-44 -   5.057e-88: 4.039800 cy/op
+    5.057e-88 -  1.137e-131: 4.038500 cy/op
+   1.137e-131 -  2.557e-175: 4.038300 cy/op
+   2.557e-175 -  5.751e-219: 4.038300 cy/op
+   5.751e-219 -  1.293e-262: 4.037200 cy/op
+   1.293e-262 -  2.908e-306: 4.038300 cy/op
+   2.908e-306 -  2.421e-322: 133.642900 cy/op
+   2.421e-322 -  2.421e-322: 254.049000 cy/op
+   2.421e-322 -  2.421e-322: 200.933400 cy/op
+
+   -1.000e+00 -  -2.249e-44: 4.038000 cy/op
+   -2.249e-44 -  -5.057e-88: 4.056800 cy/op
+   -5.057e-88 - -1.137e-131: 4.037500 cy/op
+  -1.137e-131 - -2.557e-175: 4.037700 cy/op
+  -2.557e-175 - -5.751e-219: 4.142600 cy/op
+  -5.751e-219 - -1.293e-262: 4.126200 cy/op
+  -1.293e-262 - -2.908e-306: 4.142400 cy/op
+  -2.908e-306 - -2.421e-322: 210.286200 cy/op
+  -2.421e-322 - -2.421e-322: 174.418400 cy/op
+  -2.421e-322 - -2.421e-322: 150.653900 cy/op
+```
+
+Overflow operations do not take longer than normal, but underflow takes FAR
+longer: 100-200 extra cycles per operation!
+
+According to the book, this extra work might be explained by these paths
+requiring special handling in microcode rather than in hardware. I don't really
+understand what about these edge case values makes them so hard to handle in
+hardware.
