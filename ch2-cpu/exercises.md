@@ -186,6 +186,20 @@ what you learned in Exercise 2.6. For the floating-point calculations, keep
 your data values away from the extremes of overflow/underflow, but also not
 exactly 1.0 or 0.0.**
 
+Estimates:
+
+```
+$ gcc -O2 cpu.cc -lm && ./a.out -t 4.78 -b 3.6
+ADD:    1.036636 cycles
+IMUL:   3.115324 cycles
+DIV:    32.668203 cycles
+FADD:   4.161362 cycles
+FMUL:   4.149092 cycles
+FDIV:   13.535031 cycles
+```
+
+Comparing to Agner's results, `FADD` is slow by 1 cycle, `FMUL` is fast by 1,
+and `FDIV` is fast by 1.5.
 
 ## Exercise 9 (optional)
 **Deliberately have your double-precision multiply and divide loops above drift
