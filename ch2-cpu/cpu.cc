@@ -1,12 +1,13 @@
 // Code for Chapter 2: Measuring CPUs.
 
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
 #include <x86intrin.h>
 
-size_t N_ITERATIONS = 1000 * 1000 * 1000;
+size_t MAX_ITERATIONS = 1000 * 1000 * 1000;
 
 // Always returns false, but the compiler doesn't know that.
 // Used to mark variables live.
@@ -95,9 +96,7 @@ Args ParseArgs(int argc, char** argv) {
 	return args;
 }
 
-int main(int argc, char** argv) {
-	Args args = ParseArgs(argc, argv);
-
+double MeasureAdd(Args* args, size_t n_iterations, bool print_stats) {
 	// Get bits unknown by the compiler to avoid precalculating the sum.
 	// Mark volatile to avoid turning the loop into an imul.
 	volatile uint64_t iter = time(NULL) & 0xff;
@@ -113,33 +112,63 @@ int main(int argc, char** argv) {
 	// PS: Why doesn't the compiler do this for us?
 	_mm_mfence();
 	_mm_mfence();
-	_mm_mfence();
-	_mm_mfence();
-	_mm_mfence();
-	_mm_mfence();
 	int64_t start_cy = __rdtsc();
-	for (size_t i = 0; i < N_ITERATIONS; ++i) {
+	for (size_t i = 0; i < n_iterations; ++i) {
 		sum += iter;
 	}
 	int64_t stop_cy = __rdtsc();
 	int64_t elapsed = stop_cy - start_cy;
 
-	double elapsed_adjusted = elapsed * args.clock_multiplier;
+	double elapsed_adjusted = elapsed * args->clock_multiplier;
+	double cy_per_iter = elapsed_adjusted / n_iterations;
 
-	fprintf(
-		stdout,
-		"iters:       %lu\n"
-		"cy reported: %ld\n"
-		"cy adjusted: %f\n"
-		"cy/iter:     %f\n",
-		N_ITERATIONS,
-		elapsed,
-		elapsed_adjusted,
-		elapsed_adjusted / N_ITERATIONS
-	);
+	if (print_stats) {
+		fprintf(
+			stdout,
+			"iters:       %lu\n"
+			"cy reported: %ld\n"
+			"cy adjusted: %f\n"
+			"cy/iter:     %f\n",
+			n_iterations,
+			elapsed,
+			elapsed_adjusted,
+			cy_per_iter
+		);
+	}
 
 	// Mark sum and iter live.
 	if (NeverTrue()) fprintf(stdout, "%lu %lu\n", sum, iter);
+
+	return cy_per_iter;
+}
+
+void FindBestNIterations(Args* args) {
+	int n_iters_exp = 0;
+	for (size_t n_iters = 1; n_iters <= MAX_ITERATIONS; n_iters *= 10) {
+		const int n_tries = 100;
+		double results[n_tries];
+		for (int i = 0; i < n_tries; ++i) {
+			results[i] = MeasureAdd(args, n_iters, /*print_stats=*/ false);
+		}
+
+		double mean = 0;
+		for (int i = 0; i < n_tries; ++i) mean += results[i];
+		mean /= n_tries;
+
+		double variance_sum = 0;
+		for (int i = 0; i < n_tries; ++i) variance_sum += pow(results[i] - mean, 2);
+		double variance = variance_sum / n_tries;
+		double coeff_of_var = pow(variance, 0.5) / mean;
+
+		fprintf(stdout, "iters: 10^%d\tmean: %f\tCV: %f\n", n_iters_exp, mean, coeff_of_var);
+		n_iters_exp++;
+	}
+}
+
+int main(int argc, char** argv) {
+	Args args = ParseArgs(argc, argv);
+
+	FindBestNIterations(&args);
 
 	return 0;
 }
