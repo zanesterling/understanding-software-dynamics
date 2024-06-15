@@ -124,6 +124,8 @@ int main(int argc, char** argv) {
 	int64_t stop_cy = __rdtsc();
 	int64_t elapsed = stop_cy - start_cy;
 
+	double elapsed_adjusted = elapsed * args.clock_multiplier;
+
 	fprintf(
 		stdout,
 		"iters:       %lu\n"
@@ -132,8 +134,8 @@ int main(int argc, char** argv) {
 		"cy/iter:     %f\n",
 		N_ITERATIONS,
 		elapsed,
-		elapsed * args.clock_multiplier,
-		1.0 * elapsed / N_ITERATIONS
+		elapsed_adjusted,
+		elapsed_adjusted / N_ITERATIONS
 	);
 
 	// Mark sum and iter live.
