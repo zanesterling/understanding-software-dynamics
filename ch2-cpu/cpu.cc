@@ -96,6 +96,7 @@ Args ParseArgs(int argc, char** argv) {
 	return args;
 }
 
+bool verbose = false;
 void PrintStats(
 	const char* instruction,
 	size_t n_iterations,
@@ -103,20 +104,24 @@ void PrintStats(
 	double cy_elapsed_adjusted,
 	double cy_per_iter
 ) {
-	fprintf(
-		stdout,
-		"%s:\n"
-		"\titers:       %lu\n"
-		"\tcy reported: %ld\n"
-		"\tcy adjusted: %ld\n"
-		"\tcy/iter:     %f\n"
-		"\n",
-		instruction,
-		n_iterations,
-		cy_elapsed,
-		(int64_t)cy_elapsed_adjusted,
-		cy_per_iter
-	);
+	if (verbose) {
+		fprintf(
+			stdout,
+			"%s:\n"
+			"\titers:       %lu\n"
+			"\tcy reported: %ld\n"
+			"\tcy adjusted: %ld\n"
+			"\tcy/iter:     %f\n"
+			"\n",
+			instruction,
+			n_iterations,
+			cy_elapsed,
+			(int64_t)cy_elapsed_adjusted,
+			cy_per_iter
+		);
+	} else {
+		fprintf(stdout, "%s:\t%f cycles\n", instruction, cy_per_iter);
+	}
 }
 
 double MeasureAdd(Args* args, size_t n_iterations, bool print_stats) {
@@ -207,6 +212,84 @@ double MeasureDiv(Args* args, size_t n_iterations, bool print_stats) {
 	return cy_per_iter;
 }
 
+double MeasureFadd(Args* args, size_t n_iterations, bool print_stats) {
+	// Get bits unknown by the compiler to avoid precalculating the product.
+	// Mark volatile to avoid turning the loop into an imul.
+	volatile double iter = (double) (time(NULL) & 0xff);
+	double sum = 0;
+
+	int64_t start_cy = __rdtsc();
+	for (size_t i = 0; i < n_iterations; ++i) {
+		sum += iter;
+	}
+	int64_t stop_cy = __rdtsc();
+	int64_t cy_elapsed = stop_cy - start_cy;
+
+	double cy_elapsed_adjusted = cy_elapsed * args->clock_multiplier;
+	double cy_per_iter = cy_elapsed_adjusted / n_iterations;
+
+	if (print_stats) {
+		PrintStats("FADD", n_iterations, cy_elapsed, cy_elapsed_adjusted, cy_per_iter);
+	}
+
+	// Mark prod and iter live.
+	if (NeverTrue()) fprintf(stdout, "%f %f\n", sum, iter);
+
+	return cy_per_iter;
+}
+
+double MeasureFmul(Args* args, size_t n_iterations, bool print_stats) {
+	// Get bits unknown by the compiler to avoid precalculating the product.
+	// Mark volatile to avoid turning the loop into an imul.
+	volatile double iter = (double) (time(NULL) & 0xff);
+	double prod = 0;
+
+	int64_t start_cy = __rdtsc();
+	for (size_t i = 0; i < n_iterations; ++i) {
+		prod *= iter;
+	}
+	int64_t stop_cy = __rdtsc();
+	int64_t cy_elapsed = stop_cy - start_cy;
+
+	double cy_elapsed_adjusted = cy_elapsed * args->clock_multiplier;
+	double cy_per_iter = cy_elapsed_adjusted / n_iterations;
+
+	if (print_stats) {
+		PrintStats("FMUL", n_iterations, cy_elapsed, cy_elapsed_adjusted, cy_per_iter);
+	}
+
+	// Mark prod and iter live.
+	if (NeverTrue()) fprintf(stdout, "%f %f\n", prod, iter);
+
+	return cy_per_iter;
+}
+
+double MeasureFdiv(Args* args, size_t n_iterations, bool print_stats) {
+	// Get bits unknown by the compiler to avoid precalculating the product.
+	// Mark volatile to avoid turning the loop into an imul.
+	volatile double iter = (double) (time(NULL) & 0xff);
+	double prod = 0;
+
+	int64_t start_cy = __rdtsc();
+	for (size_t i = 0; i < n_iterations; ++i) {
+		prod /= iter;
+	}
+	int64_t stop_cy = __rdtsc();
+	int64_t cy_elapsed = stop_cy - start_cy;
+
+	double cy_elapsed_adjusted = cy_elapsed * args->clock_multiplier;
+	double cy_per_iter = cy_elapsed_adjusted / n_iterations;
+
+	if (print_stats) {
+		PrintStats("FDIV", n_iterations, cy_elapsed, cy_elapsed_adjusted, cy_per_iter);
+	}
+
+	// Mark prod and iter live.
+	if (NeverTrue()) fprintf(stdout, "%f %f\n", prod, iter);
+
+	return cy_per_iter;
+}
+
 void FindBestNIterations(Args* args) {
 	const int tries_per_iter = 100;
 	fprintf(stdout, "tries per iter: %d\n", tries_per_iter);
@@ -252,6 +335,9 @@ int main(int argc, char** argv) {
 	MeasureAdd(&args, N_ITERATIONS, /*print_stats=*/true);
 	MeasureImul(&args, N_ITERATIONS, /*print_stats=*/true);
 	MeasureDiv(&args, N_ITERATIONS, /*print_stats=*/true);
+	MeasureFadd(&args, N_ITERATIONS, /*print_stats=*/true);
+	MeasureFmul(&args, N_ITERATIONS, /*print_stats=*/true);
+	MeasureFdiv(&args, N_ITERATIONS, /*print_stats=*/true);
 
 	return 0;
 }
