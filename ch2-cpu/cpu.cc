@@ -96,6 +96,29 @@ Args ParseArgs(int argc, char** argv) {
 	return args;
 }
 
+void PrintStats(
+	const char* instruction,
+	size_t n_iterations,
+	int64_t cy_elapsed,
+	double cy_elapsed_adjusted,
+	double cy_per_iter
+) {
+	fprintf(
+		stdout,
+		"%s:\n"
+		"\titers:       %lu\n"
+		"\tcy reported: %ld\n"
+		"\tcy adjusted: %ld\n"
+		"\tcy/iter:     %f\n"
+		"\n",
+		instruction,
+		n_iterations,
+		cy_elapsed,
+		(int64_t)cy_elapsed_adjusted,
+		cy_per_iter
+	);
+}
+
 double MeasureAdd(Args* args, size_t n_iterations, bool print_stats) {
 	// Get bits unknown by the compiler to avoid precalculating the sum.
 	// Mark volatile to avoid turning the loop into an imul.
@@ -117,23 +140,13 @@ double MeasureAdd(Args* args, size_t n_iterations, bool print_stats) {
 		sum += iter;
 	}
 	int64_t stop_cy = __rdtsc();
-	int64_t elapsed = stop_cy - start_cy;
+	int64_t cy_elapsed = stop_cy - start_cy;
 
-	double elapsed_adjusted = elapsed * args->clock_multiplier;
-	double cy_per_iter = elapsed_adjusted / n_iterations;
+	double cy_elapsed_adjusted = cy_elapsed * args->clock_multiplier;
+	double cy_per_iter = cy_elapsed_adjusted / n_iterations;
 
 	if (print_stats) {
-		fprintf(
-			stdout,
-			"iters:       %lu\n"
-			"cy reported: %ld\n"
-			"cy adjusted: %f\n"
-			"cy/iter:     %f\n",
-			n_iterations,
-			elapsed,
-			elapsed_adjusted,
-			cy_per_iter
-		);
+		PrintStats("ADD", n_iterations, cy_elapsed, cy_elapsed_adjusted, cy_per_iter);
 	}
 
 	// Mark sum and iter live.
