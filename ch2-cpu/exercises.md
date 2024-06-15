@@ -114,3 +114,46 @@ $ gcc -O2 mystery1.cc && ./a.out
 `-O2` changes significantly: it has to run the loop now. The `volatile` forces
 the compiler to consider `iter` as non-constant during the loop, and so it can't
 optimize the adds in to a multiply.
+
+## Exercise 5
+**Make your own copy of `mystery1.cc` and modify it along the lines discussed
+in this chapter to give a reasonable measurement of the latency in cycles of a
+64-bit integer add. Write down your numeric answer.**
+
+1 cycle.
+
+
+## Exercise 6
+**Experiment with the number of loop iterations in your copy of `mystery1.cc`:
+1, 10, ... 1000000000. Explain why some values do not produce meaningful
+results.**
+
+Results:
+
+```
+$ gcc -O2 cpu.cc -lm && ./a.out -t 4.78 -b 3.6
+tries per iter: 100
+iters: 10^0     min: 23.900000  mean: 26.316556 CV: 0.059003
+iters: 10^1     min: 2.390000   mean: 2.913144  CV: 0.536121
+iters: 10^2     min: 1.354333   mean: 1.444622  CV: 0.081424
+iters: 10^3     min: 1.064878   mean: 1.070667  CV: 0.005076
+iters: 10^4     min: 1.034073   mean: 1.036832  CV: 0.002811
+iters: 10^5     min: 1.031126   mean: 1.046152  CV: 0.096965
+iters: 10^6     min: 1.030815   mean: 1.038224  CV: 0.014794
+iters: 10^7     min: 1.012944   mean: 1.029100  CV: 0.014100
+iters: 10^8     min: 1.007789   mean: 1.023758  CV: 0.008994
+iters: 10^9     min: 1.017842   mean: 1.026602  CV: 0.012511
+```
+
+The first three powers (1, 10, 100) run few enough ADDs that the results are
+heavily skewed by the overhead in running `rdtsc` (20-30 cycles). The rest all
+get within 8% of the target in both mean and min. 10^8 does particularly well,
+and 10^7 does about as well as 10^9 despite being 100x faster.
+This probably comes down to the shorter loops running safely within the timer
+interrupt cycle.
+
+`10^7 cycles / (4.7 * 10^9 cycles/sec) = 2ms`, which is in the range of typical
+timer cycles `1-10ms`.
+
+The remaining variation might be due to hyperthreading? Not sure.
+

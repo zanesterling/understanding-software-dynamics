@@ -143,24 +143,36 @@ double MeasureAdd(Args* args, size_t n_iterations, bool print_stats) {
 }
 
 void FindBestNIterations(Args* args) {
+	const int tries_per_iter = 100;
+	fprintf(stdout, "tries per iter: %d\n", tries_per_iter);
+
 	int n_iters_exp = 0;
 	for (size_t n_iters = 1; n_iters <= MAX_ITERATIONS; n_iters *= 10) {
-		const int n_tries = 100;
-		double results[n_tries];
-		for (int i = 0; i < n_tries; ++i) {
+		double results[tries_per_iter];
+		for (int i = 0; i < tries_per_iter; ++i) {
 			results[i] = MeasureAdd(args, n_iters, /*print_stats=*/ false);
 		}
 
 		double mean = 0;
-		for (int i = 0; i < n_tries; ++i) mean += results[i];
-		mean /= n_tries;
+		double min = INFINITY;
+		for (int i = 0; i < tries_per_iter; ++i) {
+			mean += results[i];
+			min = fmin(min, results[i]);
+		}
+		mean /= tries_per_iter;
 
 		double variance_sum = 0;
-		for (int i = 0; i < n_tries; ++i) variance_sum += pow(results[i] - mean, 2);
-		double variance = variance_sum / n_tries;
+		for (int i = 0; i < tries_per_iter; ++i) {
+			variance_sum += pow(results[i] - mean, 2);
+		}
+		double variance = variance_sum / tries_per_iter;
 		double coeff_of_var = pow(variance, 0.5) / mean;
 
-		fprintf(stdout, "iters: 10^%d\tmean: %f\tCV: %f\n", n_iters_exp, mean, coeff_of_var);
+		fprintf(
+			stdout,
+			"iters: 10^%d\tmin: %f\tmean: %f\tCV: %f\n",
+			n_iters_exp, min, mean, coeff_of_var
+		);
 		n_iters_exp++;
 	}
 }
