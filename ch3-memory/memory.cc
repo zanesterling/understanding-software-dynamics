@@ -208,7 +208,7 @@ double ScrambledNoExtrabitTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteS
 const uint64_t kMinStrideLg = 4;
 const uint64_t kMaxStrideLg = 12;
 
-uint16_t MeasureCacheLineSize() {
+void MeasureCacheLineSize() {
   // TODO: Is buf cache-line aligned?
   uint8_t* buf = (uint8_t*)aligned_alloc(1<<kMaxStrideLg, MAX_CACHE_SIZE_B);
 
@@ -257,31 +257,21 @@ uint16_t MeasureCacheLineSize() {
   }
 
   free(buf);
-  return 0;
 }
 
-struct LevelSizes {
-  uint64_t l1;
-  uint64_t l2;
-  uint64_t l3;
-};
-LevelSizes MeasureCacheLevelSizes() { return {0, 0, 0}; }
+void MeasureCacheLevelSizes(unit16_t line_size) {}
 
-struct LevelAssocs {
-  uint16_t l1;
-  uint16_t l2;
-  uint16_t l3;
-};
-LevelAssocs MeasureCacheLevelAssocs() { return {0, 0, 0}; }
+void MeasureCacheLevelAssocs() {}
 
 int main(int argc, char** argv) {
   args = ParseArgs(argc, argv);
 
-  uint16_t line_size = MeasureCacheLineSize();
+  MeasureCacheLineSize();
   printf("line size: %uB\n", line_size);
   printf("\n");
 
-  LevelSizes level_sizes = MeasureCacheLevelSizes();
+  uint16_t line_size = 64; // Measured in the previous section, confirmed with Agner.
+  LevelSizes level_sizes = MeasureCacheLevelSizes(line_size);
   printf("level sizes:\n");
   printf("\tL1: %luB\n", level_sizes.l1);
   printf("\tL2: %luB\n", level_sizes.l2);
