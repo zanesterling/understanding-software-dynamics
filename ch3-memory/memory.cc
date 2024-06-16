@@ -7,11 +7,15 @@
 #include <stdint.h>
 #include <time.h>
 #include <x86intrin.h> // May need a different import for Windows.
+#include <stdlib.h>
 
 #include "polynomial.h"
+#include "../util/args.h"
 
 const size_t MAX_CACHE_SIZE_B = 40 * 1024 * 1024;
-const size_t N_LOADS = 1024;
+const size_t N_LOADS = 256;
+
+Args args;
 
 struct Pair {
   Pair* next;
@@ -47,7 +51,7 @@ Pair* MakeLinkedList(uint8_t* buf, size_t byteSize, uint64_t byteStride) {
   return rootptr;
 }
 
-int64_t NaiveTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteStride) {
+double NaiveTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteStride) {
   const Pair* pairptr = reinterpret_cast<Pair*>(ptr);
   int pairStride = byteStride / sizeof(Pair);
   int64_t sum = 0;
@@ -58,28 +62,28 @@ int64_t NaiveTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteStride) {
   // May have multiple loops outstanding; may have prefetching.
   // Unroll 4 times to attempt to reduce loop overhead in timing.
   uint64_t startcy = __rdtsc();
-  for (int i = 0; i < N_LOADS / 4; i += 4) {
-    sum += pairptr[0*pairStride].data;
-    sum += pairptr[1*pairStride].data;
-    sum += pairptr[2*pairStride].data;
-    sum += pairptr[3*pairStride].data;
+  for (int i = 0; i < N_LOADS; i += 4) {
+    sum += pairptr[0 * pairStride].data;
+    sum += pairptr[1 * pairStride].data;
+    sum += pairptr[2 * pairStride].data;
+    sum += pairptr[3 * pairStride].data;
     pairptr += 4 * pairStride;
   }
   uint64_t stopcy = __rdtsc();
   int64_t elapsed = stopcy - startcy; // Cycles
 
   if (NeverTrue()) printf("%ld\n", sum);
-  return elapsed / N_LOADS; // Cycles per load.
+  return args.clock_multiplier * elapsed / N_LOADS; // Cycles per load.
 }
 
 // Defeats OOE. Still vulnerable to linear prefetching.
-int64_t LinearTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteStride) {
+double LinearTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteStride) {
   Pair* pairptr = MakeLinkedList(ptr, byteSize, byteStride);
   ClearCache(ptr, byteSize);
 
   // Unroll 4 times to attempt to reduce loop overhead in timing.
   uint64_t startcy = __rdtsc();
-  for (int i = 0; i < N_LOADS / 4; i += 4) {
+  for (int i = 0; i < N_LOADS; i += 4) {
     pairptr = pairptr->next;
     pairptr = pairptr->next;
     pairptr = pairptr->next;
@@ -89,7 +93,24 @@ int64_t LinearTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteStride) {
   int64_t elapsed = stopcy - startcy; // Cycles
 
   if (NeverTrue()) printf("%p\n", pairptr);
-  return elapsed / N_LOADS; // Cycles per load.
+  return args.clock_multiplier * elapsed / N_LOADS; // Cycles per load.
+}
+
+// Defeats OOE. Still vulnerable to linear prefetching.
+double LinearRolledTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteStride) {
+  Pair* pairptr = MakeLinkedList(ptr, byteSize, byteStride);
+  ClearCache(ptr, byteSize);
+
+  // Unroll 4 times to attempt to reduce loop overhead in timing.
+  uint64_t startcy = __rdtsc();
+  for (int i = 0; i < N_LOADS; ++i) {
+    pairptr = pairptr->next;
+  }
+  uint64_t stopcy = __rdtsc();
+  int64_t elapsed = stopcy - startcy; // Cycles
+
+  if (NeverTrue()) printf("%p\n", pairptr);
+  return args.clock_multiplier * elapsed / N_LOADS; // Cycles per load.
 }
 
 // In a byte array, create a linked list of Pairs, spaced by the given stride.
@@ -109,7 +130,7 @@ int64_t LinearTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteStride) {
 // This routine is not intended to be particularly fast; it is called just once
 //
 // Returns a pointer to the first element of the list.
-Pair* MakeLongList(uint8_t* ptr, int bytesize, int bytestride, bool makelinear) {
+Pair* MakeLongList(uint8_t* ptr, int bytesize, int bytestride, bool makelinear, bool use_extrabit) {
   // Make an array of 256 mixed-up offsets
   // 0, ff, e3, db, ... 7b, f6, f1
   int mixedup[256];
@@ -125,7 +146,7 @@ Pair* MakeLongList(uint8_t* ptr, int bytesize, int bytestride, bool makelinear) 
   Pair* pairptr = reinterpret_cast<Pair*>(ptr);
   int element_count = bytesize / bytestride;
   // Make sure next element is in different DRAM row than current element
-  int extrabit = makelinear ? 0 : (1 << 14);
+  int extrabit = (makelinear || !use_extrabit) ? 0 : (1 << 14);
   // Fill in N-1 elements, each pointing to the next one
   for (int i = 1; i < element_count; ++i) {
     // If not linear, there are mixed-up groups of 256 elements chained together
@@ -143,13 +164,14 @@ Pair* MakeLongList(uint8_t* ptr, int bytesize, int bytestride, bool makelinear) 
 }
 
 // Defeats OOE. Still vulnerable to linear prefetching.
-int64_t ScrambledTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteStride) {
-  Pair* pairptr = MakeLongList(ptr, byteSize, byteStride, /*makelinear=*/ false);
+double ScrambledTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteStride) {
+  Pair* pairptr = MakeLongList(
+    ptr, byteSize, byteStride, /*makelinear=*/ false, /*use_extrabit=*/true);
   ClearCache(ptr, byteSize);
 
   // Unroll 4 times to attempt to reduce loop overhead in timing.
   uint64_t startcy = __rdtsc();
-  for (int i = 0; i < N_LOADS / 4; i += 4) {
+  for (int i = 0; i < N_LOADS; i += 4) {
     pairptr = pairptr->next;
     pairptr = pairptr->next;
     pairptr = pairptr->next;
@@ -159,33 +181,78 @@ int64_t ScrambledTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteStride) {
   int64_t elapsed = stopcy - startcy; // Cycles
 
   if (NeverTrue()) printf("%p\n", pairptr);
-  return elapsed / N_LOADS; // Cycles per load.
+  return args.clock_multiplier * elapsed / N_LOADS; // Cycles per load.
 }
+
+// Defeats OOE. Still vulnerable to linear prefetching.
+double ScrambledNoExtrabitTiming(uint8_t* ptr, uint64_t byteSize, uint64_t byteStride) {
+  Pair* pairptr = MakeLongList(
+    ptr, byteSize, byteStride, /*makelinear=*/ false, /*use_extrabit=*/false);
+  ClearCache(ptr, byteSize);
+
+  // Unroll 4 times to attempt to reduce loop overhead in timing.
+  uint64_t startcy = __rdtsc();
+  for (int i = 0; i < N_LOADS; i += 4) {
+    pairptr = pairptr->next;
+    pairptr = pairptr->next;
+    pairptr = pairptr->next;
+    pairptr = pairptr->next;
+  }
+  uint64_t stopcy = __rdtsc();
+  int64_t elapsed = stopcy - startcy; // Cycles
+
+  if (NeverTrue()) printf("%p\n", pairptr);
+  return args.clock_multiplier * elapsed / N_LOADS; // Cycles per load.
+}
+
+const uint64_t kMinStrideLg = 4;
+const uint64_t kMaxStrideLg = 12;
 
 uint16_t MeasureCacheLineSize() {
   // TODO: Is buf cache-line aligned?
-  uint8_t* buf = (uint8_t*)malloc(MAX_CACHE_SIZE_B);
+  uint8_t* buf = (uint8_t*)aligned_alloc(1<<kMaxStrideLg, MAX_CACHE_SIZE_B);
+
+  double naive_results[kMaxStrideLg - kMinStrideLg + 1];
+  double linear_results[kMaxStrideLg - kMinStrideLg + 1];
+  double linear_rolled_results[kMaxStrideLg - kMinStrideLg + 1];
+  double scrambled_results[kMaxStrideLg - kMinStrideLg + 1];
+  double scrambled_no_extrabit_results[kMaxStrideLg - kMinStrideLg + 1];
 
   printf("cycles per load:\n");
-  for (
-    uint64_t byteStride = sizeof(Pair);
-    byteStride <= 4096;
-    byteStride *= 2
-  ) {
-    int64_t naiveCyPerLoad = 0;
-    int64_t linearCyPerLoad = 0;
-    int64_t scrambledCyPerLoad = 0;
-    for (int i = 0; i < 10; ++i) {
-      naiveCyPerLoad += NaiveTiming(buf, MAX_CACHE_SIZE_B, byteStride);
-      linearCyPerLoad += LinearTiming(buf, MAX_CACHE_SIZE_B, byteStride);
-      scrambledCyPerLoad += ScrambledTiming(buf, MAX_CACHE_SIZE_B, byteStride);
-    }
-    naiveCyPerLoad /= 10;
-    linearCyPerLoad /= 10;
-    scrambledCyPerLoad /= 10;
+  for (uint64_t byteStrideLg = kMinStrideLg; byteStrideLg <= kMaxStrideLg; ++byteStrideLg) {
+    uint64_t byteStride = 1 << byteStrideLg;
+    naive_results[byteStrideLg - kMinStrideLg] = NaiveTiming(buf, MAX_CACHE_SIZE_B, byteStride);
+  }
+  for (uint64_t byteStrideLg = kMinStrideLg; byteStrideLg <= kMaxStrideLg; ++byteStrideLg) {
+    uint64_t byteStride = 1 << byteStrideLg;
+    linear_results[byteStrideLg - kMinStrideLg] = LinearTiming(buf, MAX_CACHE_SIZE_B, byteStride);
+  }
+  for (uint64_t byteStrideLg = kMinStrideLg; byteStrideLg <= kMaxStrideLg; ++byteStrideLg) {
+    uint64_t byteStride = 1 << byteStrideLg;
+    linear_rolled_results[byteStrideLg - kMinStrideLg] = LinearRolledTiming(buf, MAX_CACHE_SIZE_B, byteStride);
+  }
+  for (uint64_t byteStrideLg = kMinStrideLg; byteStrideLg <= kMaxStrideLg; ++byteStrideLg) {
+    uint64_t byteStride = 1 << byteStrideLg;
+    scrambled_results[byteStrideLg - kMinStrideLg] = ScrambledTiming(buf, MAX_CACHE_SIZE_B, byteStride);
+  }
+  for (uint64_t byteStrideLg = kMinStrideLg; byteStrideLg <= kMaxStrideLg; ++byteStrideLg) {
+    uint64_t byteStride = 1 << byteStrideLg;
+    scrambled_no_extrabit_results[byteStrideLg - kMinStrideLg] = ScrambledNoExtrabitTiming(buf, MAX_CACHE_SIZE_B, byteStride);
+  }
+
+  for (uint64_t byteStrideLg = kMinStrideLg; byteStrideLg <= kMaxStrideLg; ++byteStrideLg) {
+    uint64_t byteStride = 1 << byteStrideLg;
+    size_t i = byteStrideLg - kMinStrideLg;
+    double naiveCyPerLoad = naive_results[i];
+    double linearCyPerLoad = linear_results[i];
+    double linearRolledCyPerLoad = linear_rolled_results[i];
+    double scrambledCyPerLoad = scrambled_results[i];
+    double scrambledNoExtrabitCyPerLoad = scrambled_no_extrabit_results[i];
     printf(
-      "\tstride=%luB\tnaive: %ld\tlinear: %ld\tscrambled: %ld\n",
-      byteStride, naiveCyPerLoad, linearCyPerLoad, scrambledCyPerLoad
+      "\tstride=%luB\tnaive: %.2f\tlinear: %.2f\tlinear rolled: %.2f\tscrambled: %.2f\n"
+      "\t            \tscrambled: %.2f\tscr no extrabit: %.2f\n",
+      byteStride, naiveCyPerLoad, linearCyPerLoad, linearRolledCyPerLoad, scrambledCyPerLoad,
+      scrambledCyPerLoad, scrambledNoExtrabitCyPerLoad
     );
   }
 
@@ -208,6 +275,8 @@ struct LevelAssocs {
 LevelAssocs MeasureCacheLevelAssocs() { return {0, 0, 0}; }
 
 int main(int argc, char** argv) {
+  args = ParseArgs(argc, argv);
+
   uint16_t line_size = MeasureCacheLineSize();
   printf("line size: %uB\n", line_size);
   printf("\n");
