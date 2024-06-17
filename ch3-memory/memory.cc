@@ -3,6 +3,7 @@
 // - total size of each level of cache
 // - associativity of each level of cache
 
+#include <assert.h>
 #include <cstdio>
 #include <stdint.h>
 #include <time.h>
@@ -325,19 +326,161 @@ void MeasureCacheLevelSizes(uint16_t line_size_bytes) {
   }
 }
 
-void MeasureCacheLevelAssocs() {}
+Pair* AssocSetup(
+  uint8_t* buf,
+  const size_t buf_size_bytes,
+  const size_t cache_size_bytes
+) {
+  // Here we make the assumption that the cache is using the lowest bits above
+  // lg(line_size_bytes) to pick the set.
+  //
+  // Striding by cache_size_bytes should guarantee that every read ends up in set[0].
+  return MakeLongList(buf, buf_size_bytes, cache_size_bytes, /*makelinear=*/false, /*use_extrabit=*/true);
+}
+
+Pair* AssocRead(Pair* read_list, const uint64_t assoc) {
+  for (int i = 0; i < assoc; ++i) {
+    read_list = read_list->next;
+  }
+  return read_list;
+}
+
+void MeasureL1CacheLevelAssoc(
+  uint64_t line_size_bytes,
+  uint64_t l1_size_bytes
+) {
+  // For each guess A for the associativity:
+  // - Fetch A lines that should land in the same set.
+  // - Repeat. If the guess is <= the real A, then it should stay fast.
+  //
+  // We will need to defeat the stride goblin.
+
+  fprintf(stdout, "L1:\n");
+
+  uint8_t* const buf = (uint8_t*)aligned_alloc(PAGE_SIZE, MAX_CACHE_SIZE_B);
+
+  for (uint64_t assoc = 1; assoc < 128; assoc *= 2) {
+    const auto env = AssocSetup(buf, MAX_CACHE_SIZE_B, l1_size_bytes);
+    ClearCache(buf, MAX_CACHE_SIZE_B);
+
+    double clean_cy_per_read;
+    {
+      int64_t start_cy = __rdtsc();
+      const auto read = AssocRead(env, assoc);
+      int64_t stop_cy = __rdtsc();
+      int64_t elapsed = stop_cy - start_cy;
+      clean_cy_per_read = elapsed * args.clock_multiplier / assoc;
+      if (NeverTrue()) fprintf(stdout, "%p\n", read);
+    }
+
+    double dirty_cy_per_read;
+    {
+      const int N_LOOPS = 100 * 1024;
+      int acc = 0;
+      int64_t start_cy = __rdtsc();
+      for (int i = 0; i < N_LOOPS; i++) {
+        acc += 0xff & (size_t) (AssocRead(env, assoc));
+      }
+      int64_t stop_cy = __rdtsc();
+      int64_t elapsed = stop_cy - start_cy;
+      dirty_cy_per_read = elapsed * args.clock_multiplier / assoc / N_LOOPS;
+      if (NeverTrue()) fprintf(stdout, "%d\n", acc);
+    }
+
+    // Prediction: clean should be O(100) and dirty should be ~4,
+    // until assoc is too big.
+    fprintf(stdout, "\tassoc=%lu \tclean: %f cy/f\tdirty: %f cy/f\n",
+            assoc, clean_cy_per_read, dirty_cy_per_read);
+  }
+  fprintf(stdout, "\n");
+}
+
+uint64_t max(uint64_t x, uint64_t y) { return x > y ? x : y; }
+
+void MeasureL2CacheLevelAssoc(
+  uint64_t line_size_bytes,
+  uint64_t l1_size_bytes,
+  uint64_t l2_size_bytes
+) {
+  // For each guess A for the associativity:
+  // - Fetch A lines that should land in the same set.
+  // - Repeat. If the guess is <= the real A, then it should stay fast.
+  //
+  // We will need to defeat the stride goblin.
+  fprintf(stdout, "L2:\n");
+
+  uint8_t* const buf = (uint8_t*)aligned_alloc(PAGE_SIZE, MAX_CACHE_SIZE_B);
+  const uint64_t l1_assoc = 8;
+
+  for (uint64_t assoc = 1; assoc < 128; assoc *= 2) {
+    const auto c = max(l1_assoc / assoc, 1);
+    auto stride_size_bytes = l2_size_bytes;
+    if (assoc < l1_assoc) {
+      stride_size_bytes = l2_size_bytes / c;
+    }
+    const auto env = AssocSetup(buf, MAX_CACHE_SIZE_B, stride_size_bytes);
+    ClearCache(buf, MAX_CACHE_SIZE_B);
+
+    assert(stride_size_bytes % l1_size_bytes == 0);
+
+    const auto fetches_per_read = max(assoc*c + 1, l1_assoc);
+    double clean_cy_per_read;
+    {
+      int64_t start_cy = __rdtsc();
+      const auto read = AssocRead(env, fetches_per_read);
+      int64_t stop_cy = __rdtsc();
+      int64_t elapsed = stop_cy - start_cy;
+      clean_cy_per_read = elapsed * args.clock_multiplier / fetches_per_read;
+      if (NeverTrue()) fprintf(stdout, "%p\n", read);
+    }
+
+    double dirty_cy_per_read;
+    {
+      const int N_LOOPS = 100 * 1024;
+      int acc = 0;
+      int64_t start_cy = __rdtsc();
+      for (int i = 0; i < N_LOOPS; i++) {
+        acc += 0xff & (size_t) (AssocRead(env, fetches_per_read));
+      }
+      int64_t stop_cy = __rdtsc();
+      int64_t elapsed = stop_cy - start_cy;
+      dirty_cy_per_read = elapsed * args.clock_multiplier / fetches_per_read / N_LOOPS;
+      if (NeverTrue()) fprintf(stdout, "%d\n", acc);
+    }
+
+    // Prediction: clean should be O(100) and dirty should be ~4,
+    // until assoc is too big.
+    fprintf(stdout, "\tassoc=%lu \tclean: %f cy/f\tdirty: %f cy/f\n",
+            assoc, clean_cy_per_read, dirty_cy_per_read);
+  }
+  fprintf(stdout, "\n");
+}
+
+void MeasureL3CacheLevelAssoc(
+  uint64_t line_size_bytes,
+  uint64_t l1_size_bytes,
+  uint64_t l2_size_bytes, // TODO: measure
+  uint64_t l3_size_bytes
+) {
+}
 
 int main(int argc, char** argv) {
   args = ParseArgs(argc, argv);
 
-  MeasureCacheLineSize();
-  printf("\n");
+  // MeasureCacheLineSize();
+  // printf("\n");
 
-  uint16_t line_size = 64; // Measured in the previous section, confirmed with Agner.
-  MeasureCacheLevelSizes(line_size);
-  printf("\n");
+  const uint16_t line_size_bits = 64; // Measured in the previous section, confirmed with Agner.
+  // MeasureCacheLevelSizes(line_size_bits);
+  // printf("\n");
 
-  MeasureCacheLevelAssocs();
+  const uint64_t l1_size_bytes = 32 * 1024;
+  const uint64_t l2_size_bytes = 256 * 1024;
+  const uint64_t l3_size_bytes = 8 * 1024 * 1024;
+  const size_t line_size_bytes = line_size_bits / 8;
+  MeasureL1CacheLevelAssoc(line_size_bytes, l1_size_bytes);
+  MeasureL2CacheLevelAssoc(line_size_bytes, l1_size_bytes, l2_size_bytes);
+  MeasureL3CacheLevelAssoc(line_size_bytes, l1_size_bytes, l2_size_bytes, l3_size_bytes);
   printf("\n");
 
   return 0;

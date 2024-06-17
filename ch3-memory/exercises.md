@@ -289,3 +289,21 @@ or completely wiped.
 ## Exercise 8
 **Implement `FindCacheAssociativity()`. What is the associativity of each
 level?**
+
+Step 0: what does associativity mean again? Associativity is how many lines you
+can have in the same set. Remember that caches can be: fully associative,
+meaning that any slot in the cache can hold any line; direct-mapped, meaning
+that each memory location only has one slot that can hold it; or n-way
+associative, meaning that each memory location has n possible slots. The set of
+n slots for an n-way associative is called a *set*. The associativity of a cache
+is its n. Each line within a set is called a way.
+
+So how do we find the associativity of a cache?
+
+First off we need to make some assumptions about how the cache picks which set a
+memory location should go in. If I remember right the common way is as follows.
+The bottom `lg(line_size)` bits are ignored. The next `lg(num_sets)` bits choose
+which set the location ends up in.
+
+L1 assoc: 8-way.
+L2 assoc: 4-way I think
