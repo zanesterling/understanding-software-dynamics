@@ -12,8 +12,9 @@
 #include "polynomial.h"
 #include "../util/args.h"
 
-const size_t MAX_CACHE_SIZE_B = 40 * 1024 * 1024;
+const size_t MAX_CACHE_SIZE_B = 80 * 1024 * 1024;
 const size_t N_LOADS = 256;
+const size_t PAGE_SIZE = 4096;
 
 Args args;
 
@@ -259,7 +260,70 @@ void MeasureCacheLineSize() {
   free(buf);
 }
 
-void MeasureCacheLevelSizes(unit16_t line_size) {}
+double ScrambledReads(const Pair* pair_ptr, uint64_t n_reads) {
+  int64_t start_cy = __rdtsc();
+  for (size_t i = 0; i < n_reads; i += 4) {
+    pair_ptr = pair_ptr->next;
+    pair_ptr = pair_ptr->next;
+    pair_ptr = pair_ptr->next;
+    pair_ptr = pair_ptr->next;
+  }
+  int64_t stop_cy = __rdtsc();
+  if (NeverTrue()) fprintf(stdout, "%p\n", pair_ptr);
+  return args.clock_multiplier * (stop_cy - start_cy) / n_reads;
+}
+
+struct SizeMeasurements {
+  double dirty_fetch_cy;
+  double clean_fetch_1_cy;
+  double clean_fetch_2_cy;
+  double clean_fetch_3_cy;
+};
+SizeMeasurements MeasureSize(
+  const uint16_t line_size_bytes,
+  const Pair* const root_pair,
+  const size_t buf_size,
+  const uint64_t cache_size_kb
+) {
+  ClearCache((uint8_t*)root_pair, buf_size);
+
+  SizeMeasurements out;
+  size_t lines_to_read = cache_size_kb * 1024 / line_size_bytes;
+  out.dirty_fetch_cy = ScrambledReads(root_pair, lines_to_read);
+  out.clean_fetch_1_cy = ScrambledReads(root_pair, lines_to_read);
+  out.clean_fetch_2_cy = ScrambledReads(root_pair, lines_to_read);
+  out.clean_fetch_3_cy = ScrambledReads(root_pair, lines_to_read);
+  return out;
+}
+
+int minCacheSizeKbLg = 1;
+int maxCacheSizeKbLg = 15;
+void MeasureCacheLevelSizes(uint16_t line_size_bytes) {
+  uint8_t* const buf = (uint8_t*)aligned_alloc(PAGE_SIZE, MAX_CACHE_SIZE_B);
+  int byte_stride = line_size_bytes * 2; // Defeat N+1.
+  bool makelinear = false;
+  bool use_extrabit = true;
+  Pair* pair_ptr = MakeLongList(buf, MAX_CACHE_SIZE_B, line_size_bytes*2, makelinear, use_extrabit);
+
+  for (int lg = minCacheSizeKbLg; lg <= maxCacheSizeKbLg; ++lg) {
+    const uint64_t cache_size_kb = 1ul << lg;
+    const auto out = MeasureSize(line_size_bytes, pair_ptr, MAX_CACHE_SIZE_B, cache_size_kb);
+
+    fprintf(
+      stdout,
+      "size=%luKiB:\n"
+      "\tdirty: %f\n"
+      "\tclean: %f\n"
+      "\tclean: %f\n"
+      "\tclean: %f\n",
+      cache_size_kb,
+      out.dirty_fetch_cy,
+      out.clean_fetch_1_cy,
+      out.clean_fetch_2_cy,
+      out.clean_fetch_3_cy
+    );
+  }
+}
 
 void MeasureCacheLevelAssocs() {}
 
@@ -267,22 +331,13 @@ int main(int argc, char** argv) {
   args = ParseArgs(argc, argv);
 
   MeasureCacheLineSize();
-  printf("line size: %uB\n", line_size);
   printf("\n");
 
   uint16_t line_size = 64; // Measured in the previous section, confirmed with Agner.
-  LevelSizes level_sizes = MeasureCacheLevelSizes(line_size);
-  printf("level sizes:\n");
-  printf("\tL1: %luB\n", level_sizes.l1);
-  printf("\tL2: %luB\n", level_sizes.l2);
-  printf("\tL3: %luB\n", level_sizes.l3);
+  MeasureCacheLevelSizes(line_size);
   printf("\n");
 
-  LevelAssocs level_assocs = MeasureCacheLevelAssocs();
-  printf("level assocs:\n");
-  printf("\tL1: %uB\n", level_assocs.l1);
-  printf("\tL2: %uB\n", level_assocs.l2);
-  printf("\tL3: %uB\n", level_assocs.l3);
+  MeasureCacheLevelAssocs();
   printf("\n");
 
   return 0;

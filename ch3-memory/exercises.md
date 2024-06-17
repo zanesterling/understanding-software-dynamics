@@ -163,3 +163,129 @@ On the machine described in the book I think L1=32KiB, L2=256KiB, and L3=2MiB.
 Editor's note: the L3 is in fact 3MiB.
 
 On my machine, let's find out!
+
+Results:
+```
+size=2KiB:
+        dirty: 355.097569
+        clean: 18.007986
+        clean: 4.730208
+        clean: 4.730208
+size=4KiB:
+        dirty: 271.115625
+        clean: 9.377431
+        clean: 4.315278
+        clean: 4.315278
+size=8KiB:
+        dirty: 239.954340
+        clean: 6.472917
+        clean: 4.273785
+        clean: 4.294531
+size=16KiB:
+        dirty: 230.027127
+        clean: 6.120226
+        clean: 5.082899
+        clean: 5.010286
+size=32KiB:
+        dirty: 202.439431
+        clean: 12.577582
+        clean: 12.458290
+        clean: 12.453103
+size=64KiB:
+        dirty: 188.845269
+        clean: 12.689095
+        clean: 12.437543
+        clean: 12.406424
+size=128KiB:
+        dirty: 193.168327
+        clean: 27.493039
+        clean: 18.826177
+        clean: 17.858870
+size=256KiB:
+        dirty: 169.347423
+        clean: 41.476199
+        clean: 31.846568
+        clean: 31.832954
+size=512KiB:
+        dirty: 173.896748
+        clean: 78.860794
+        clean: 55.185440
+        clean: 44.393679
+size=1024KiB:
+        dirty: 177.122670
+        clean: 122.534990
+        clean: 32.555678
+        clean: 32.102010
+size=2048KiB:
+        dirty: 178.096461
+        clean: 158.887445
+        clean: 36.710089
+        clean: 31.781655
+size=4096KiB:
+        dirty: 178.293087
+        clean: 161.367668
+        clean: 70.901583
+        clean: 45.387122
+size=8192KiB:
+        dirty: 164.719792
+        clean: 160.083065
+        clean: 121.205814
+        clean: 115.010464
+size=16384KiB:
+        dirty: 170.189967
+        clean: 166.479712
+        clean: 163.215011
+        clean: 163.039972
+size=32768KiB:
+        dirty: 170.024684
+        clean: 170.216642
+        clean: 172.535388
+        clean: 172.627492
+```
+
+The frequent spike in the first clean read is odd. Maybe caused by timer
+interrupts? Unclear.
+
+In general we see a jump at 32KiB from 4cy to 12cy,
+an early rise at 128KiB leading to fully risen at 256KiB,
+and a final rise at 8MiB to saturate at 16MiB.
+
+So I would guess that my caches are L1=16KiB, L2=128KiB, L3=8MiB.
+
+Agner and the web say L1=32KiB, L2=256KiB, L3=8MiB.
+I must have been deceived by the "our code uses some extra memory" feature.
+
+
+## Exercise 5
+**What is your best estimate of the load-to-use time in cycles for each cache
+level?**
+
+- L1: 4cy.
+- L2: 12cy.
+- L3: ~32cy.
+
+
+## Exercise 6
+**To run on a CPU with a non-power of 2 cache size, such as an Intel i3 with
+3MiB of L3 cache, how would you modify the code?**
+
+I would either try half intervals or first run at powers of two, find the
+sections where there's a rise, and then resample just those sections at much
+higher density.
+
+
+## Exercise 7
+**In the second part that looks at cache sizes, explain the variation in cycle
+counts within each cache level. The ones that barely fill a level are a bit
+faster than the ones that completely fill a level. Why could that be?**
+
+We assumed in our analysis that only the data that we're looping through ends
+up in the cache, but this isn't true. Some other small bits of program data
+end up in the cache, pushing out parts of the looped data and causing cache
+misses. In addition, when the OS context switches, the cache may be partially
+or completely wiped.
+
+
+## Exercise 8
+**Implement `FindCacheAssociativity()`. What is the associativity of each
+level?**
