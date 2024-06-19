@@ -1,5 +1,7 @@
 // args.h - Defines some arg parsing utilities.
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 struct Args {
