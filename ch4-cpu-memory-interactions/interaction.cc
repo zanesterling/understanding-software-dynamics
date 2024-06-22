@@ -89,17 +89,21 @@ int main(int argc, char** argv) {
   fprintf(stdout, "pre: sizeof(Matrix.data)=%lu\n", sizeof(a.data[0]) * a.width * a.height);
   fprintf(stdout, "\n");
 
+  #ifdef SIMPLE
   {
     CleanCache();
     double secs = SimpleMatMul(a, b, c);
     double checksum = Checksum(c);
     fprintf(stdout, "SimpleMatMul:           %f seconds, sum = %f\n", secs, checksum);
   }
+  #endif
 
+  #ifdef SIMPLE_COLUMNWISE
   {
     CleanCache();
     double secs = SimpleMatMulColumnwise(a, b, c);
     double checksum = Checksum(c);
     fprintf(stdout, "SimpleMatMulColumnwise: %f seconds, sum = %f\n", secs, checksum);
   }
+  #endif
 }
