@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "../util/measure.h"
 
@@ -81,15 +82,18 @@ int main(int argc, char** argv) {
   Matrix b = MakeMatrix(1024, 1024);
   Matrix c = MakeMatrix(1024, 1024);
 
-  fprintf(
-    stdout,
-    "pre: checksums a[%f] b[%f] c[%f]\n",
-    Checksum(a), Checksum(b), Checksum(c)
-  );
-  fprintf(stdout, "pre: sizeof(Matrix.data)=%lu\n", sizeof(a.data[0]) * a.width * a.height);
-  fprintf(stdout, "\n");
+  bool verbose = (argc == 2) && (strcmp(argv[1], "-v") == 0);
+  if (verbose) {
+    fprintf(
+      stdout,
+      "pre: checksums a[%f] b[%f] c[%f]\n",
+      Checksum(a), Checksum(b), Checksum(c)
+    );
+    fprintf(stdout, "pre: sizeof(Matrix.data)=%lu\n", sizeof(a.data[0]) * a.width * a.height);
+    fprintf(stdout, "\n");
+  }
 
-  #ifdef SIMPLE
+  #if defined SIMPLE || defined ALL
   {
     CleanCache();
     double secs = SimpleMatMul(a, b, c);
@@ -98,7 +102,7 @@ int main(int argc, char** argv) {
   }
   #endif
 
-  #ifdef SIMPLE_COLUMNWISE
+  #if defined SIMPLE_COLUMNWISE || defined ALL
   {
     CleanCache();
     double secs = SimpleMatMulColumnwise(a, b, c);
