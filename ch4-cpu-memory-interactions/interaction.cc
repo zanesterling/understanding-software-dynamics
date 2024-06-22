@@ -1,26 +1,10 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <time.h>
-#include <x86intrin.h>
+
+#include "../util/measure.h"
 
 const size_t PAGE_SIZE = 4 * 1024;
-
-const size_t L1_SIZE_BYTES = 32  * 1024;
-const size_t L2_SIZE_BYTES = 256 * 1024;
-const size_t L3_SIZE_BYTES = 16  * 1024 * 1024;
-
-bool NeverTrue() { return time(NULL) == 0; }
-
-void CleanCache() {
-  uint8_t* buf = (uint8_t*)malloc(L3_SIZE_BYTES);
-  uint64_t sum = 0;
-  for (size_t i = 0; i < L3_SIZE_BYTES / 8; ++i) {
-    sum += buf[i];
-  }
-  if (NeverTrue()) fprintf(stdout, "%lu\n", sum);
-  free(buf);
-}
 
 struct Matrix {
   // Data is stowed in row-major order.
