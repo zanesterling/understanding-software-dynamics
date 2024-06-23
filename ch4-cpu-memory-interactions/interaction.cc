@@ -92,6 +92,66 @@ Matrix Transposed(Matrix a) {
   return ret;
 }
 
+// Returns the transpose of the given matrix.
+// Involves a malloc.
+//
+// Only works on matrices with 8-divisible width and height.
+Matrix Transposed8x8(Matrix a) {
+  assert(a.height % 8 == 0);
+  assert(a.width % 8 == 0);
+
+  double* const data = (double*)aligned_alloc(PAGE_SIZE, a.width * a.height * sizeof(double));
+  Matrix ret = {data, a.height, a.width};
+
+  const size_t block_w = a.width / 8;
+  const size_t block_h = a.height / 8;
+  for (size_t a_block_y = 0; a_block_y < block_h; a_block_y++) {
+    for (size_t a_block_x = 0; a_block_x < block_w; a_block_x++) {
+      for (size_t row = 0; row < 8; ++row) {
+        for (size_t col = 0; col < 8; ++col) {
+          const size_t a_x = a_block_x * 8 + col;
+          const size_t a_y = a_block_y * 8 + row;
+          const double val = a.data[a_y * a.width + a_x];
+          const size_t ret_x = a_y;
+          const size_t ret_y = a_x;
+          ret.data[ret_y * ret.width + ret_x] = val;
+        }
+      }
+    }
+  }
+  return ret;
+}
+
+// Returns the transpose of the given matrix.
+// Involves a malloc.
+//
+// Only works on matrices with 8-divisible width and height.
+Matrix Transposed8x8Flipped(Matrix a) {
+  assert(a.height % 8 == 0);
+  assert(a.width % 8 == 0);
+
+  double* const data = (double*)aligned_alloc(PAGE_SIZE, a.width * a.height * sizeof(double));
+  Matrix ret = {data, a.height, a.width};
+
+  const size_t block_w = a.width / 8;
+  const size_t block_h = a.height / 8;
+  for (size_t a_block_y = 0; a_block_y < block_h; a_block_y++) {
+    for (size_t a_block_x = 0; a_block_x < block_w; a_block_x++) {
+      for (size_t col = 0; col < 8; ++col) {
+        for (size_t row = 0; row < 8; ++row) {
+          const size_t a_x = a_block_x * 8 + col;
+          const size_t a_y = a_block_y * 8 + row;
+          const double val = a.data[a_y * a.width + a_x];
+          const size_t ret_x = a_y;
+          const size_t ret_y = a_x;
+          ret.data[ret_y * ret.width + ret_x] = val;
+        }
+      }
+    }
+  }
+  return ret;
+}
+
 // c = a*b
 //
 // Returns the number of seconds taken.
@@ -101,7 +161,7 @@ double TransposeMatMul(Matrix a, Matrix b, Matrix* c) {
   assert(b.width == c->width);
 
   clock_t start = clock();
-  Matrix bb = Transposed(b);
+  Matrix bb = Transposed8x8Flipped(b);
   Matrix cc = {c->data, c->height, c->width};
   for (size_t col = 0; col < b.width; ++col) {
     for (size_t row = 0; row < a.height; ++row) {
@@ -112,7 +172,7 @@ double TransposeMatMul(Matrix a, Matrix b, Matrix* c) {
       cc.data[row * cc.width + col] = sum;
     }
   }
-  Matrix ccc = Transposed(cc);
+  Matrix ccc = Transposed8x8Flipped(cc);
   free(c->data);
   c->data = ccc.data;
   free(bb.data);
@@ -152,6 +212,57 @@ int main(int argc, char** argv) {
     double secs = SimpleMatMulColumnwise(a, b, c);
     double checksum = Checksum(c);
     fprintf(stdout, "SimpleMatMulColumnwise: %f seconds, sum = %f\n", secs, checksum);
+  }
+  #endif
+
+  #if defined JUST_TRANSPOSE || defined ALL
+  {
+    for (int i = 0; i < 100; i++) {
+      CleanCache();
+      clock_t start = clock();
+      auto cc = Transposed(c);
+      auto ccc = Transposed(cc);
+      clock_t stop = clock();
+      double secs = (stop - start) * 1. / CLOCKS_PER_SEC;
+      double checksum = Checksum(ccc);
+      free(cc.data);
+      free(ccc.data);
+      fprintf(stdout, "Transposed x2: %f seconds, sum = %f\n", secs, checksum);
+    }
+  }
+  #endif
+
+  #if defined JUST_TRANSPOSE_88 || defined ALL
+  {
+    for (int i = 0; i < 100; i++) {
+      CleanCache();
+      clock_t start = clock();
+      auto cc = Transposed8x8(c);
+      auto ccc = Transposed8x8(cc);
+      clock_t stop = clock();
+      double secs = (stop - start) * 1. / CLOCKS_PER_SEC;
+      double checksum = Checksum(ccc);
+      free(cc.data);
+      free(ccc.data);
+      fprintf(stdout, "Transposed x2: %f seconds, sum = %f\n", secs, checksum);
+    }
+  }
+  #endif
+
+  #if defined JUST_TRANSPOSE_88_2 || defined ALL
+  {
+    for (int i = 0; i < 100; i++) {
+      CleanCache();
+      clock_t start = clock();
+      auto cc = Transposed8x8Flipped(c);
+      auto ccc = Transposed8x8Flipped(cc);
+      clock_t stop = clock();
+      double secs = (stop - start) * 1. / CLOCKS_PER_SEC;
+      double checksum = Checksum(ccc);
+      free(cc.data);
+      free(ccc.data);
+      fprintf(stdout, "Transposed x2: %f seconds, sum = %f\n", secs, checksum);
+    }
   }
   #endif
 
