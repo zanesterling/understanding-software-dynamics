@@ -5,7 +5,7 @@ runall: all
 
 PERF_STAT=perf stat -e mem_load_retired.l1_miss,mem_load_retired.l2_miss,mem_load_retired.l3_miss
 
-runeach: simple simple-columnwise transpose block-remap
+runeach: transpose block-remap
 	$(PERF_STAT) ./simple
 	$(PERF_STAT) ./simple-columnwise
 	$(PERF_STAT) ./transpose
@@ -17,7 +17,7 @@ runtrans: just-transpose just-transpose-88 just-transpose-88-flipped
 	$(PERF_STAT) ./just-transpose-88-flipped > /dev/null
 
 runremap: just-block-remap
-	$(PERF_STAT) ./just-block-remap > /dev/null
+	$(PERF_STAT) ./just-block-remap
 
 clean:
 	rm -f simple simple-columnwise transpose just-transpose
