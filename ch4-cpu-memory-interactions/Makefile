@@ -5,15 +5,19 @@ runall: all
 
 PERF_STAT=perf stat -e mem_load_retired.l1_miss,mem_load_retired.l2_miss,mem_load_retired.l3_miss
 
-runeach: simple simple-columnwise transpose
+runeach: simple simple-columnwise transpose block-remap
 	$(PERF_STAT) ./simple
 	$(PERF_STAT) ./simple-columnwise
 	$(PERF_STAT) ./transpose
+	$(PERF_STAT) ./block-remap
 
 runtrans: just-transpose just-transpose-88 just-transpose-88-flipped
 	$(PERF_STAT) ./just-transpose > /dev/null
 	$(PERF_STAT) ./just-transpose-88 > /dev/null
 	$(PERF_STAT) ./just-transpose-88-flipped > /dev/null
+
+runremap: just-block-remap
+	$(PERF_STAT) ./just-block-remap > /dev/null
 
 clean:
 	rm -f simple simple-columnwise transpose just-transpose
@@ -38,3 +42,9 @@ just-transpose-88-flipped: interaction.cc ../util/measure.h
 
 transpose: interaction.cc ../util/measure.h
 	gcc -O2 interaction.cc -DTRANSPOSE -lm -o transpose
+
+just-block-remap: interaction.cc ../util/measure.h
+	gcc -O2 interaction.cc -DJUST_BLOCK_REMAP -lm -o just-block-remap
+
+block-remap: interaction.cc ../util/measure.h
+	gcc -O2 interaction.cc -DBLOCK_REMAP -lm -o block-remap
