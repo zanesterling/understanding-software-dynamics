@@ -1,13 +1,22 @@
 #include <errno.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include "rpc.h"
+
+#define hton16 htons
+#define hton32 htonl
+#define ntoh16 ntohs
+#define ntoh32 ntohl
 
 struct ListenArgs {
   const int port;
@@ -15,16 +24,62 @@ struct ListenArgs {
   ListenArgs(int port) : port(port) {}
 };
 
-void* listen(void* void_args) {
-  ListenArgs* args = (ListenArgs*)void_args;
+const int SOCK_BACKLOG = 1;
+
+void* rpc_listen(void* void_args) {
+  const ListenArgs* args = (ListenArgs*)void_args;
   printf("%d: listening\n", args->port);
 
   // Open socket.
+  int sock_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (sock_fd == -1) {
+    char* errstr = strerror(errno);
+    fprintf(stderr, "%d: couldn't open socket: %s\n", args->port, errstr);
+    return NULL;
+  }
+  printf("%d: opened sock_fd=%d\n", args->port, sock_fd);
+
+  sockaddr_in server_addr;
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = hton16(args->port);
+  server_addr.sin_addr.s_addr = hton32(INADDR_ANY);
+  bzero(server_addr.sin_zero, 8);
+  if (-1 == bind(sock_fd, (sockaddr*)&server_addr, sizeof(sockaddr_in))) {
+    char* errstr = strerror(errno);
+    fprintf(stderr, "%d: couldn't bind socket: %s\n", args->port, errstr);
+    close(sock_fd);
+    return NULL;
+  }
+  printf("%d: bound\n", args->port);
+
+  if (listen(sock_fd, SOCK_BACKLOG) == -1) {
+    char* errstr = strerror(errno);
+    fprintf(stderr, "%d: couldn't listen on socket: %s\n", args->port, errstr);
+    close(sock_fd);
+    return NULL;
+  }
+  printf("%d: listened\n", args->port);
+
+  while (true) {
+    struct sockaddr client_addr;
+    socklen_t addr_len;
+    int peer_sock_fd = accept(sock_fd, &client_addr, &addr_len);
+    if (peer_sock_fd == -1) {
+      char* errstr = strerror(errno);
+      fprintf(stderr, "%d: couldn't accept: %s\n", args->port, errstr);
+      continue;
+    }
+
+    printf("%d: connection handled :-)\n", args->port);
+    close(peer_sock_fd);
+  }
+
   // Read RPC command.
   // Process command.
   // On quit(), close socket.
 
   printf("%d: closing, goodbye!\n", args->port);
+  close(sock_fd);
   return NULL;
 }
 
@@ -65,15 +120,15 @@ int main(int argc, char** argv) {
     exit(1);
   }
 
-  printf("Starting listen() threads for port ids [%d,%d].\n", start_port, end_port);
+  printf("Starting rpc_listen() threads for port ids [%d,%d].\n", start_port, end_port);
 
   const int n_threads = end_port - start_port + 1;
   pthread_t* thread_ids = (pthread_t*) malloc(sizeof(pthread_t) * n_threads);
   for (int i = 0; i < n_threads; ++i) {
     int port = start_port + i;
     printf("main: start thread for port %d\n", port);
-    if (0 != pthread_create(&thread_ids[i], NULL, listen, new ListenArgs(port))) { // error
-      perror("couldn't spawn the requested number of listen() threads");
+    if (0 != pthread_create(&thread_ids[i], NULL, rpc_listen, new ListenArgs(port))) { // error
+      perror("couldn't spawn the requested number of rpc_listen() threads");
       exit(1);
       // TODO: Will the child threads properly clean up their sockets on exit?
     }
