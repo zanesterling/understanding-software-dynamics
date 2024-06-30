@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdint.h>
 
 #include "assert.h"
@@ -17,6 +19,8 @@
 // +-----------+-----------+---------+----------+
 // | signature | headerlen | datalen | checksum |
 // +-----------+-----------+---------+----------+
+
+constexpr uint32_t MARK_SIGNATURE = 0xdeadbeef;
 
 struct RPCMark {
   uint32_t signature;
