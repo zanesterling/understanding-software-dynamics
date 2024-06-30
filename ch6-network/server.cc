@@ -26,6 +26,46 @@ struct ListenArgs {
 
 const int SOCK_BACKLOG = 1;
 
+enum class RpcAction {
+  QUIT,
+  CONTINUE,
+};
+
+void handle_rpc_ping();
+void handle_rpc_write();
+void handle_rpc_read();
+void handle_rpc_chksum();
+void handle_rpc_delete();
+void handle_rpc_stats();
+void handle_rpc_reset();
+void handle_rpc_quit();
+
+RpcAction handle_rpc_conn(int port, int peer_sock_fd) {
+  while (true) {
+    // Read RPC mark.
+    printf("%d: reading rpc mark\n", port);
+    RPCMark rpc_mark;
+    ssize_t read_bytes = 0;
+    while (read_bytes < sizeof(RPCMark)) {
+      const auto ret = read(peer_sock_fd, (void*)&rpc_mark, sizeof(RPCMark) - read_bytes);
+      if (ret >= 0) read_bytes += ret;
+      else {
+        char* errstr = strerror(errno);
+        fprintf(stderr, "%d: failed to read: %s", port, errstr);
+      }
+    }
+    printf("%d: ", port);
+    rpc_mark.pretty_print();
+
+    // Reader RPC header.
+    // Read RPC body.
+    // Process command.
+    // On quit(), close socket.
+  }
+
+  return RpcAction::CONTINUE;
+}
+
 void* rpc_listen(void* void_args) {
   const ListenArgs* args = (ListenArgs*)void_args;
   printf("%d: listening\n", args->port);
@@ -70,13 +110,11 @@ void* rpc_listen(void* void_args) {
       continue;
     }
 
-    printf("%d: connection handled :-)\n", args->port);
+    const auto action = handle_rpc_conn(args->port, peer_sock_fd);
     close(peer_sock_fd);
+    // TODO: Actually, quit() should kill the whole server.
+    if (action == RpcAction::QUIT) break;
   }
-
-  // Read RPC command.
-  // Process command.
-  // On quit(), close socket.
 
   printf("%d: closing, goodbye!\n", args->port);
   close(sock_fd);
