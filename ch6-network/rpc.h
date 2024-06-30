@@ -27,6 +27,9 @@ struct RPCMark {
 
 static_assert(sizeof(RPCMark) == 16);
 
+const uint16_t TYPE_REQUEST  = 0;
+const uint16_t TYPE_RESPONSE = 1;
+
 struct RPCHeader {
   // Unique ID number for each outstanding request.
   uint32_t rpc_id;
@@ -61,6 +64,8 @@ struct RPCHeader {
   uint32_t status;
 
   // uint32_t pad;
+
+  void pretty_print();
 };
 
 static_assert(sizeof(RPCHeader) == 72);
