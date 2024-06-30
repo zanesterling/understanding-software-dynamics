@@ -45,24 +45,47 @@ RpcAction handle_rpc_conn(int port, int peer_sock_fd) {
     // Read RPC mark.
     printf("%d: reading rpc mark\n", port);
     RPCMark rpc_mark;
-    ssize_t read_bytes = 0;
+    size_t read_bytes = 0;
     while (read_bytes < sizeof(RPCMark)) {
-      const auto ret = read(peer_sock_fd, (void*)&rpc_mark, sizeof(RPCMark) - read_bytes);
+      void* const buf = (void*) (read_bytes + (uint8_t*)&rpc_mark);
+      const auto ret = read(peer_sock_fd, buf, sizeof(RPCMark) - read_bytes);
       if (ret >= 0) read_bytes += ret;
       else {
         char* errstr = strerror(errno);
         fprintf(stderr, "%d: failed to read: %s", port, errstr);
+        close(peer_sock_fd);
+        // TODO: be more selective about which errors are fatal
       }
     }
     printf("%d: ", port);
     rpc_mark.pretty_print();
 
-    // Reader RPC header.
+    // Read RPC header.
+    printf("%d: reading rpc header\n", port);
+    RPCHeader rpc_header;
+    read_bytes = 0;
+    while (read_bytes < rpc_mark.header_len) {
+      void* const buf = (void*) (read_bytes + (uint8_t*)&rpc_header);
+      const auto ret = read(peer_sock_fd, buf, rpc_mark.header_len - read_bytes);
+      if (ret >= 0) read_bytes += ret;
+      else {
+        char* errstr = strerror(errno);
+
+        fprintf(stderr, "%d: failed to read: %s", port, errstr);
+        close(peer_sock_fd);
+        // TODO: be more selective about which errors are fatal
+      }
+    }
+    printf("%d ", port);
+    rpc_header.pretty_print();
+
     // Read RPC body.
     // Process command.
     // On quit(), close socket.
+    break;
   }
 
+  printf("ending connection\n");
   return RpcAction::CONTINUE;
 }
 
@@ -101,6 +124,8 @@ void* rpc_listen(void* void_args) {
   printf("%d: listened\n", args->port);
 
   while (true) {
+    // Accept a connection.
+    printf("%d: accepting...\n", args->port);
     struct sockaddr client_addr;
     socklen_t addr_len;
     int peer_sock_fd = accept(sock_fd, &client_addr, &addr_len);
@@ -110,6 +135,7 @@ void* rpc_listen(void* void_args) {
       continue;
     }
 
+    // Handle as many RPCs as they send.
     const auto action = handle_rpc_conn(args->port, peer_sock_fd);
     close(peer_sock_fd);
     // TODO: Actually, quit() should kill the whole server.

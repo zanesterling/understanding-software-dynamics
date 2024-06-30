@@ -83,6 +83,8 @@ struct RPCMessage {
   // Returns a pointer to the first byte after `header`, where the body of the
   // request / response is stored.
   uint8_t* data();
+
+  int send(int sock_fd);
 };
 
 static_assert(sizeof(RPCMessage) == sizeof(RPCMark) + sizeof(RPCHeader));

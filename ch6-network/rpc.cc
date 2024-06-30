@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 
 #include "rpc.h"
 
@@ -64,5 +65,10 @@ void RPCHeader::pretty_print() {
 
 uint8_t* RPCMessage::data() {
   return sizeof(RPCMessage) + (uint8_t*) this;
+}
+
+int RPCMessage::send(int sock_fd) {
+  size_t n_bytes = sizeof(RPCMark) + this->mark.header_len + this->mark.data_len;
+  return write(sock_fd, this, n_bytes);
 }
 

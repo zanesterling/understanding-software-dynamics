@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
   server_addr.sin_port = htons(args.port);
   if (-1 == inet_pton(AF_INET, args.server, &server_addr.sin_addr)) {
     char* errstr = strerror(errno);
-    fprintf(stderr, "failed to parse server ip: \"%s\"\n", args.server);
+    fprintf(stderr, "failed to parse server ip: \"%s\": %s\n", args.server, errstr);
     exit(1);
   }
 
@@ -77,11 +77,13 @@ int main(int argc, char** argv) {
   message.mark.header_len = sizeof(RPCHeader);
   message.mark.data_len = 0;
   message.mark.checksum = 0xfadedafb;
-
-  if (-1 == write(sock_fd, &message, sizeof(RPCMark))) {
-    perror("failed to write");
+  bzero(&message.header, sizeof(RPCHeader));
+  memcpy(message.header.method, "test :-)", 8);
+  if (-1 == message.send(sock_fd)) {
+    perror("failed to send message");
     exit(1);
   }
+
   // TODO: send the rest of the message
 
   close(sock_fd);
