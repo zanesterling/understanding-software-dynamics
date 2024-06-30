@@ -73,3 +73,6 @@ struct RPCMessage {
   // request / response is stored.
   uint8_t* data();
 };
+
+static_assert(sizeof(RPCMessage) == sizeof(RPCMark) + sizeof(RPCHeader));
+
