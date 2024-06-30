@@ -2,6 +2,20 @@
 
 #include "rpc.h"
 
+void RPCMark::pretty_print() {
+  printf(
+    "RPCMark:\n"
+    "\tsignature:  0x%x\n"
+    "\theader_len: %d\n"
+    "\tdata_len:   %d\n"
+    "\tchecksum:   0x%x\n",
+    signature,
+    header_len,
+    data_len,
+    checksum
+  );
+}
+
 const char* message_type_str(uint16_t message_type) {
   switch (message_type) {
     case TYPE_REQUEST:  return "REQUEST";

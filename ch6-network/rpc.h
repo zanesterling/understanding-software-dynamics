@@ -23,6 +23,8 @@ struct RPCMark {
   uint32_t header_len;
   uint32_t data_len;
   uint32_t checksum;
+
+  void pretty_print();
 };
 
 static_assert(sizeof(RPCMark) == 16);
