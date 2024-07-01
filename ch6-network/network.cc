@@ -52,11 +52,7 @@ int tcp_connect(
   return 0;
 }
 
-int tcp_listen(
-  const uint16_t port,
-  const int backlog,
-  Connection* const out_conn
-) {
+int tcp_listen(const uint16_t port, const int backlog) {
   // Open socket.
   int sock_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (-1 == sock_fd) return -1;
@@ -95,11 +91,6 @@ int tcp_listen(
     return -1;
   }
 
-  out_conn->sock_fd = sock_fd;
-  out_conn->server_ip   = server_addr.sin_addr.s_addr;
-  out_conn->server_port = server_addr.sin_port;
-  out_conn->client_ip   = 0;
-  out_conn->client_port = 0;
-  return 0;
+  return sock_fd;
 }
 

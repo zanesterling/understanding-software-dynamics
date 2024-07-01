@@ -20,5 +20,5 @@ int tcp_connect(
   Connection* out_conn
 );
 
-int tcp_listen(uint16_t server_port, int backlog, Connection* out_conn);
+int tcp_listen(uint16_t server_port, int backlog);
 

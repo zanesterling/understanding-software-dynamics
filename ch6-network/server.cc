@@ -93,28 +93,20 @@ RpcAction handle_rpc_conn(int port, int peer_sock_fd) {
 void* rpc_listen(void* void_args) {
   const ListenArgs* args = (ListenArgs*)void_args;
 
-  Connection connection;
-  if (-1 == tcp_listen(args->port, SOCK_BACKLOG, &connection)) {
+  int sock_fd = tcp_listen(args->port, SOCK_BACKLOG);
+  if (-1 == sock_fd) {
     char* errstr = strerror(errno);
     fprintf(stderr, "%d: couldn't open listening socket: %s\n", args->port, errstr);
     return NULL;
   }
-  printf(
-    "%d: listening at %d.%d.%d.%d:%d\n",
-    args->port,
-    (connection.server_ip & 0xff000000) >> 24,
-    (connection.server_ip & 0x00ff0000) >> 16,
-    (connection.server_ip & 0x0000ff00) >> 8,
-     connection.server_ip & 0x000000ff,
-    connection.server_port
-  );
+  printf("%d: listening!\n", args->port);
 
   while (true) {
     // Accept a connection.
     printf("%d: accepting...\n", args->port);
     struct sockaddr client_addr;
     socklen_t addr_len;
-    int peer_sock_fd = accept(connection.sock_fd, &client_addr, &addr_len);
+    int peer_sock_fd = accept(sock_fd, &client_addr, &addr_len);
     if (peer_sock_fd == -1) {
       char* errstr = strerror(errno);
       fprintf(stderr, "%d: couldn't accept: %s\n", args->port, errstr);
@@ -129,7 +121,7 @@ void* rpc_listen(void* void_args) {
   }
 
   printf("%d: closing, goodbye!\n", args->port);
-  close(connection.sock_fd);
+  close(sock_fd);
   return NULL;
 }
 
