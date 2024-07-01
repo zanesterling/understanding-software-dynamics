@@ -104,6 +104,9 @@ int rpc_send_req(
   struct timeval tv;
   if (-1 == gettimeofday(&tv, NULL)) return -1;
   message.header.req_send_time_us = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
+  message.header.req_recv_time_us = 0;
+  message.header.res_send_time_us = 0;
+  message.header.res_recv_time_us = 0;
 
   message.header.client_ip   = connection->client_ip;
   message.header.client_port = connection->client_port;
