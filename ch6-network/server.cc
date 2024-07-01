@@ -93,8 +93,8 @@ RpcAction handle_rpc_conn(int port, int peer_sock_fd) {
 void* rpc_listen(void* void_args) {
   const ListenArgs* args = (ListenArgs*)void_args;
 
-  int sock_fd = tcp_listen(args->port, SOCK_BACKLOG);
-  if (-1 == sock_fd) {
+  int listen_sock_fd = tcp_listen(args->port, SOCK_BACKLOG);
+  if (-1 == listen_sock_fd) {
     char* errstr = strerror(errno);
     fprintf(stderr, "%d: couldn't open listening socket: %s\n", args->port, errstr);
     return NULL;
@@ -102,26 +102,32 @@ void* rpc_listen(void* void_args) {
   printf("%d: listening!\n", args->port);
 
   while (true) {
-    // Accept a connection.
-    printf("%d: accepting...\n", args->port);
-    struct sockaddr client_addr;
-    socklen_t addr_len;
-    int peer_sock_fd = accept(sock_fd, &client_addr, &addr_len);
-    if (peer_sock_fd == -1) {
-      char* errstr = strerror(errno);
-      fprintf(stderr, "%d: couldn't accept: %s\n", args->port, errstr);
-      continue;
-    }
+    Connection connection;
+    tcp_accept(listen_sock_fd, &connection);
+    printf(
+      "%d: accepted connection from %d.%d.%d.%d:%d to %d.%d.%d.%d:%d\n",
+      args->port,
+      (connection.client_ip & 0xff000000) >> 24,
+      (connection.client_ip & 0x00ff0000) >> 16,
+      (connection.client_ip & 0x0000ff00) >> 8,
+       connection.client_ip & 0x000000ff,
+      connection.client_port,
+      (connection.server_ip & 0xff000000) >> 24,
+      (connection.server_ip & 0x00ff0000) >> 16,
+      (connection.server_ip & 0x0000ff00) >> 8,
+       connection.server_ip & 0x000000ff,
+      connection.server_port
+    );
 
     // Handle as many RPCs as they send.
-    const auto action = handle_rpc_conn(args->port, peer_sock_fd);
-    close(peer_sock_fd);
+    const auto action = handle_rpc_conn(args->port, connection.sock_fd);
+    close(connection.sock_fd);
     // TODO: Actually, quit() should kill the whole server.
     if (action == RpcAction::QUIT) break;
   }
 
   printf("%d: closing, goodbye!\n", args->port);
-  close(sock_fd);
+  close(listen_sock_fd);
   return NULL;
 }
 

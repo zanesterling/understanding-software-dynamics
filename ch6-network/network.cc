@@ -78,9 +78,24 @@ int tcp_listen(const uint16_t port, const int backlog) {
     return -1;
   }
 
+  return sock_fd;
+}
+
+int tcp_accept(const int sock_fd, Connection* const connection) {
+  // Accept a connection.
+  struct sockaddr_in client_addr;
+  socklen_t addr_len = sizeof(client_addr);
+  int peer_sock_fd = accept(sock_fd, (sockaddr*)&client_addr, &addr_len);
+  if (peer_sock_fd == -1) return -1;
+  if (addr_len != sizeof(client_addr)) {
+    errno = ENOANO;
+    return -1;
+  }
+
   // Get the server's address.
-  socklen_t addr_len = sizeof(server_addr);
-  if (-1 == getsockname(sock_fd, (sockaddr*)&server_addr, &addr_len)) {
+  struct sockaddr_in server_addr;
+  addr_len = sizeof(server_addr);
+  if (-1 == getsockname(peer_sock_fd, (sockaddr*)&server_addr, &addr_len)) {
     int err_save = errno;
     close(sock_fd);
     errno = err_save;
@@ -91,6 +106,11 @@ int tcp_listen(const uint16_t port, const int backlog) {
     return -1;
   }
 
-  return sock_fd;
+  connection->sock_fd = peer_sock_fd;
+  connection->server_ip   = server_addr.sin_addr.s_addr;
+  connection->server_port = server_addr.sin_port;
+  connection->client_ip   = client_addr.sin_addr.s_addr;
+  connection->client_port = client_addr.sin_port;
+  return 0;
 }
 

@@ -22,3 +22,5 @@ int tcp_connect(
 
 int tcp_listen(uint16_t server_port, int backlog);
 
+int tcp_accept(int sockfd, Connection* connection);
+
