@@ -121,6 +121,7 @@ int rpc_send_req(
   message.header.req_len_log = ilog2(n_bytes + sizeof(RPCMessage));
   message.header.message_type = TYPE_REQUEST;
   strncpy(message.header.method, method, 8);
+  message.header.status = 0;
 
   size_t written_bytes = write(connection->sock_fd, &message, sizeof(RPCMessage));
   if (written_bytes != sizeof(RPCMessage)) {
