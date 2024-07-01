@@ -11,6 +11,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "network.h"
 #include "rpc.h"
 
 #define hton16 htons
@@ -91,44 +92,29 @@ RpcAction handle_rpc_conn(int port, int peer_sock_fd) {
 
 void* rpc_listen(void* void_args) {
   const ListenArgs* args = (ListenArgs*)void_args;
-  printf("%d: listening\n", args->port);
 
-  // Open socket.
-  int sock_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (sock_fd == -1) {
+  Connection connection;
+  if (-1 == tcp_listen(args->port, SOCK_BACKLOG, &connection)) {
     char* errstr = strerror(errno);
-    fprintf(stderr, "%d: couldn't open socket: %s\n", args->port, errstr);
+    fprintf(stderr, "%d: couldn't open listening socket: %s\n", args->port, errstr);
     return NULL;
   }
-  printf("%d: opened sock_fd=%d\n", args->port, sock_fd);
-
-  sockaddr_in server_addr;
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_port = hton16(args->port);
-  server_addr.sin_addr.s_addr = hton32(INADDR_ANY);
-  bzero(server_addr.sin_zero, 8);
-  if (-1 == bind(sock_fd, (sockaddr*)&server_addr, sizeof(sockaddr_in))) {
-    char* errstr = strerror(errno);
-    fprintf(stderr, "%d: couldn't bind socket: %s\n", args->port, errstr);
-    close(sock_fd);
-    return NULL;
-  }
-  printf("%d: bound\n", args->port);
-
-  if (listen(sock_fd, SOCK_BACKLOG) == -1) {
-    char* errstr = strerror(errno);
-    fprintf(stderr, "%d: couldn't listen on socket: %s\n", args->port, errstr);
-    close(sock_fd);
-    return NULL;
-  }
-  printf("%d: listened\n", args->port);
+  printf(
+    "%d: listening at %d.%d.%d.%d:%d\n",
+    args->port,
+    (connection.server_ip & 0xff000000) >> 24,
+    (connection.server_ip & 0x00ff0000) >> 16,
+    (connection.server_ip & 0x0000ff00) >> 8,
+     connection.server_ip & 0x000000ff,
+    connection.server_port
+  );
 
   while (true) {
     // Accept a connection.
     printf("%d: accepting...\n", args->port);
     struct sockaddr client_addr;
     socklen_t addr_len;
-    int peer_sock_fd = accept(sock_fd, &client_addr, &addr_len);
+    int peer_sock_fd = accept(connection.sock_fd, &client_addr, &addr_len);
     if (peer_sock_fd == -1) {
       char* errstr = strerror(errno);
       fprintf(stderr, "%d: couldn't accept: %s\n", args->port, errstr);
@@ -143,7 +129,7 @@ void* rpc_listen(void* void_args) {
   }
 
   printf("%d: closing, goodbye!\n", args->port);
-  close(sock_fd);
+  close(connection.sock_fd);
   return NULL;
 }
 
