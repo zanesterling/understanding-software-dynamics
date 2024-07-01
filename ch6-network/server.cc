@@ -41,7 +41,10 @@ void handle_rpc_stats();
 void handle_rpc_reset();
 void handle_rpc_quit();
 
-RpcAction handle_rpc_conn(int port, int peer_sock_fd) {
+RpcAction handle_rpc_conn(const Connection* const connection) {
+  const int sock_fd = connection->sock_fd;
+  const uint16_t port = connection->server_port;
+
   while (true) {
     // Read RPC mark.
     printf("%d: reading rpc mark\n", port);
@@ -49,12 +52,12 @@ RpcAction handle_rpc_conn(int port, int peer_sock_fd) {
     size_t read_bytes = 0;
     while (read_bytes < sizeof(RPCMark)) {
       void* const buf = (void*) (read_bytes + (uint8_t*)&rpc_mark);
-      const auto ret = read(peer_sock_fd, buf, sizeof(RPCMark) - read_bytes);
+      const auto ret = read(sock_fd, buf, sizeof(RPCMark) - read_bytes);
       if (ret >= 0) read_bytes += ret;
       else {
         char* errstr = strerror(errno);
         fprintf(stderr, "%d: failed to read: %s", port, errstr);
-        close(peer_sock_fd);
+        close(sock_fd);
         // TODO: be more selective about which errors are fatal
       }
     }
@@ -67,13 +70,13 @@ RpcAction handle_rpc_conn(int port, int peer_sock_fd) {
     read_bytes = 0;
     while (read_bytes < rpc_mark.header_len) {
       void* const buf = (void*) (read_bytes + (uint8_t*)&rpc_header);
-      const auto ret = read(peer_sock_fd, buf, rpc_mark.header_len - read_bytes);
+      const auto ret = read(sock_fd, buf, rpc_mark.header_len - read_bytes);
       if (ret >= 0) read_bytes += ret;
       else {
         char* errstr = strerror(errno);
 
         fprintf(stderr, "%d: failed to read: %s", port, errstr);
-        close(peer_sock_fd);
+        close(sock_fd);
         // TODO: be more selective about which errors are fatal
       }
     }
@@ -120,7 +123,7 @@ void* rpc_listen(void* void_args) {
     );
 
     // Handle as many RPCs as they send.
-    const auto action = handle_rpc_conn(args->port, connection.sock_fd);
+    const auto action = handle_rpc_conn(&connection);
     close(connection.sock_fd);
     // TODO: Actually, quit() should kill the whole server.
     if (action == RpcAction::QUIT) break;
