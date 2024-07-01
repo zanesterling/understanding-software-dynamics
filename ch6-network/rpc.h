@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "assert.h"
+#include "network.h"
 
 // An RPC request or response message starts with an RPC marker followed by an
 // RPC header followed optionally by a byte string that contains the argument
@@ -69,7 +70,7 @@ struct RPCHeader {
   // Return-value status indicating success, failure, or specific error number.
   uint32_t status;
 
-  // uint32_t pad;
+  char pad[4];
 
   void pretty_print();
 };
@@ -89,3 +90,10 @@ struct RPCMessage {
 
 static_assert(sizeof(RPCMessage) == sizeof(RPCMark) + sizeof(RPCHeader));
 
+int rpc_send_req(
+  const Connection* connection,
+  const uint8_t* body,
+  size_t n_bytes,
+  uint32_t parent_rpc,
+  const char* method
+);
