@@ -37,8 +37,8 @@ void RPCHeader::pretty_print() {
     "\tt2:      %lu\n"
     "\tt3:      %lu\n"
     "\tt4:      %lu\n"
-    "\tclient:  :%d\n" // TODO: print IP
-    "\terver:   :%d\n" // TODO: print IP
+    "\tclient:  %d.%d.%d.%d:%d\n"
+    "\tserver:  %d.%d.%d.%d:%d\n"
     "\treq_len: 2^%u\n"
     "\tres_len: 2^%u\n"
     "\ttype:    %s\n"
@@ -52,9 +52,15 @@ void RPCHeader::pretty_print() {
     res_send_time_us,
     res_recv_time_us,
 
-    // client_ip,
-    // server_ip,
+    (client_ip & 0xff000000) >> 24,
+    (client_ip & 0x00ff0000) >> 16,
+    (client_ip & 0x0000ff00) >> 8,
+     client_ip & 0x000000ff,
     client_port,
+    (server_ip & 0xff000000) >> 24,
+    (server_ip & 0x00ff0000) >> 16,
+    (server_ip & 0x0000ff00) >> 8,
+     server_ip & 0x000000ff,
     server_port,
 
     req_len_log,
