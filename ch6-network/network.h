@@ -10,3 +10,13 @@ struct Connection {
   uint16_t server_port;
 };
 
+// Opens a TCP connection to the server with IP encoded in server_addr_str and
+// port server_port, and stores the resulting connection in *out_conn.
+//
+// Returns 0 if successful, and -1 otherwise.
+int tcp_connect(
+  const char* server_addr_str,
+  int server_port,
+  Connection* out_conn
+);
+
