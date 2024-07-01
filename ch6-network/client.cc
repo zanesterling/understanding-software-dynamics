@@ -1,13 +1,12 @@
-#include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
+#include "network.h"
 #include "rpc.h"
 
 struct Args {
@@ -49,44 +48,33 @@ Args parse_args(int argc, char** argv) {
 int main(int argc, char** argv) {
   Args args = parse_args(argc, argv);
 
-  int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
-  if (-1 == sock_fd) {
-    perror("failed to open socket");
-    exit(1);
-  }
-
-  sockaddr_in server_addr;
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_port = htons(args.port);
-  if (-1 == inet_pton(AF_INET, args.server, &server_addr.sin_addr)) {
+  Connection connection;
+  if (-1 == tcp_connect(args.server, args.port, &connection)) {
     char* errstr = strerror(errno);
-    fprintf(stderr, "failed to parse server ip: \"%s\": %s\n", args.server, errstr);
+    fprintf(stderr, "failed to connect to %s:%d: %s\n",
+            args.server, args.port, errstr);
     exit(1);
   }
 
-  printf("connecting to port %d\n", args.port);
+  printf(
+    "client connected from %d.%d.%d.%d:%d to %d.%d.%d.%d:%d\n",
+    (connection.client_ip & 0xff000000) >> 24,
+    (connection.client_ip & 0x00ff0000) >> 16,
+    (connection.client_ip & 0x0000ff00) >> 8,
+     connection.client_ip & 0x000000ff,
+    connection.client_port,
+    (connection.server_ip & 0xff000000) >> 24,
+    (connection.server_ip & 0x00ff0000) >> 16,
+    (connection.server_ip & 0x0000ff00) >> 8,
+     connection.server_ip & 0x000000ff,
+    connection.server_port
+  );
 
-  if (-1 == connect(sock_fd, (sockaddr*)&server_addr, sizeof(server_addr))) {
-    perror("failed to connect");
-    exit(1);
-  }
-  printf("connected!\n");
+  const uint8_t* body = (uint8_t*)"foo bar baz";
+  size_t n_bytes = 12;
+  rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, "ping");
 
-  RPCMessage message;
-  message.mark.signature = MARK_SIGNATURE;
-  message.mark.header_len = sizeof(RPCHeader);
-  message.mark.data_len = 0;
-  message.mark.checksum = 0xfadedafb;
-  bzero(&message.header, sizeof(RPCHeader));
-  memcpy(message.header.method, "test :-)", 8);
-  if (-1 == message.send(sock_fd)) {
-    perror("failed to send message");
-    exit(1);
-  }
-
-  // TODO: send the rest of the message
-
-  close(sock_fd);
+  close(connection.sock_fd);
   return 0;
 }
 
