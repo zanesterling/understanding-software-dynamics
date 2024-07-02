@@ -24,8 +24,8 @@ struct ValueConfig {
 struct Args {
   char* server;
   uint16_t port;
-  uint32_t reps = 1;
-  uint32_t k = 1;
+  uint32_t n_conns = 1;
+  uint32_t rpcs_per_conn = 1;
   uint32_t wait_ms = 0;
   bool seed1 = false;
   bool verbose = false;
@@ -41,19 +41,46 @@ void usage() {
 
 Args parse_args(int argc, char** argv) {
   Args args;
-  // TODO: parse the rest of the arguments
-  if (argc != 4) {
-    usage();
-    exit(1);
-  }
+  if (argc < 4) usage(), exit(1);
   args.server = argv[1];
+
   errno = 0;
   args.port = strtol(argv[2], NULL, 10);
   if (errno != 0) {
     const char* errstr = strerror(errno);
     fprintf(stderr, "error: could not parse port from \"%s\": %s", argv[2], errstr);
+    usage();
+    exit(1);
   }
-  args.command = argv[3];
+
+  int next_arg = 3;
+  for (; next_arg < argc; ++next_arg) {
+    if (strcmp("-rep", argv[next_arg]) == 0) {
+      if (next_arg+1 >= argc) usage(), exit(1);
+      args.n_conns = atoi(argv[next_arg+1]);
+      ++next_arg;
+    } else if (strcmp("-k", argv[next_arg]) == 0) {
+      if (next_arg+1 >= argc) usage(), exit(1);
+      args.rpcs_per_conn = atoi(argv[next_arg+1]);
+      ++next_arg;
+    } else if (strcmp("-waitms", argv[next_arg]) == 0) {
+      if (next_arg+1 >= argc) usage(), exit(1);
+      args.wait_ms = atoi(argv[next_arg+1]);
+      ++next_arg;
+    } else if (strcmp("-seed1", argv[next_arg]) == 0) {
+      args.seed1 = true;
+    } else if (strcmp("-verbose", argv[next_arg]) == 0) {
+      args.verbose = true;
+    } else {
+      // This must be the command! We'll handle it and the other two flags
+      // separately.
+      break;
+    }
+  }
+
+  if (next_arg >= argc) usage(), exit(1);
+  args.command = argv[next_arg++];
+
   return args;
 }
 
