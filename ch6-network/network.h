@@ -24,3 +24,8 @@ int tcp_listen(uint16_t server_port, int backlog);
 
 int tcp_accept(int sockfd, Connection* connection);
 
+// Read exactly n bytes from the given file descriptor into buf.
+//
+// Return -1 if we hit an error while trying to read that many bytes.
+int readn(int sock_fd, void* buf, size_t n_bytes);
+
