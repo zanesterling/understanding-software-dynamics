@@ -116,9 +116,7 @@ int rpc_send_req(
   message.header.rpc_id = next_rpc_id++;
   message.header.parent = parent_rpc;
 
-  struct timeval tv;
-  if (-1 == gettimeofday(&tv, NULL)) return -1;
-  message.header.req_send_time_us = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
+  if (-1 == now_usec(&message.header.req_send_time_us)) return -1;
   message.header.req_recv_time_us = 0;
   message.header.res_send_time_us = 0;
   message.header.res_recv_time_us = 0;
@@ -127,12 +125,13 @@ int rpc_send_req(
   message.header.client_port = connection->client_port;
   message.header.server_ip   = connection->server_ip;
   message.header.server_port = connection->server_port;
-  message.header.req_len_log = ilog2(n_bytes + sizeof(RPCMessage));
+
+  size_t mark_and_header = sizeof(RPCMark) + sizeof(RPCHeader);
+  message.header.req_len_log = ilog2(n_bytes + mark_and_header);
   message.header.message_type = TYPE_REQUEST;
   strncpy(message.header.method, method, 8);
   message.header.status = 0;
 
-  size_t mark_and_header = sizeof(RPCMark) + sizeof(RPCHeader);
   size_t written_bytes = write(connection->sock_fd, &message, mark_and_header);
   if (written_bytes != mark_and_header) {
     return -1;
@@ -141,6 +140,63 @@ int rpc_send_req(
   if (written_bytes != n_bytes) {
     return -1;
   }
+  return 0;
+}
+
+int rpc_send_resp(
+  const Connection* connection,
+  const RPCMessage* request,
+  uint8_t* body,
+  size_t n_bytes,
+  uint32_t status
+) {
+  RPCMessage message;
+  memcpy(&message, request, sizeof(RPCMessage));
+  message.body = body;
+  message.mark.data_len = n_bytes;
+  message.mark.checksum;
+
+  if (-1 == now_usec(&message.header.res_send_time_us)) return -1;
+  size_t mark_and_header = sizeof(RPCMark) + sizeof(RPCHeader);
+  message.header.res_len_log = ilog2(n_bytes + mark_and_header);
+  message.header.message_type = TYPE_RESPONSE;
+  message.header.status = status;
+
+  size_t written_bytes = write(connection->sock_fd, &message, mark_and_header);
+  if (written_bytes != mark_and_header) {
+    return -1;
+  }
+  written_bytes = write(connection->sock_fd, body, n_bytes);
+  if (written_bytes != n_bytes) {
+    return -1;
+  }
+  return 0;
+}
+
+int rpc_recv_resp(const Connection* connection, RPCMessage* response) {
+  if (-1 == readn(connection->sock_fd, &response->mark, sizeof(RPCMark))) {
+    return -1;
+  }
+  if (response->mark.header_len != sizeof(RPCHeader)) {
+    return -1;
+  }
+  if (-1 == readn(connection->sock_fd, &response->header, sizeof(RPCHeader))) {
+    return -1;
+  }
+  response->body = (uint8_t*)malloc(response->mark.data_len);
+  if (-1 == readn(connection->sock_fd, response->body, response->mark.data_len)) {
+    return -1;
+  }
+  if (-1 == now_usec(&response->header.res_recv_time_us)) {
+    return -1;
+  }
+  return 0;
+}
+
+int now_usec(uint64_t* out) {
+  struct timeval now;
+  if (-1 == gettimeofday(&now, NULL)) return -1;
+  *out = now.tv_sec * 1000 * 1000 + now.tv_usec;
   return 0;
 }
 

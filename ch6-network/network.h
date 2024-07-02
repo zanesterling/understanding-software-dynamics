@@ -1,5 +1,6 @@
 #pragma once
 
+#include <aio.h>
 #include <stdint.h>
 
 struct Connection {

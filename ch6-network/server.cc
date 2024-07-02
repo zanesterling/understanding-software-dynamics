@@ -32,26 +32,23 @@ enum class RpcAction {
   CONTINUE,
 };
 
-void handle_rpc_ping();
-void handle_rpc_write();
-void handle_rpc_read();
-void handle_rpc_chksum();
-void handle_rpc_delete();
-void handle_rpc_stats();
-void handle_rpc_reset();
-void handle_rpc_quit();
-
-int readn(int sock_fd, void* buf, size_t n_bytes) {
-  uint8_t* buff = (uint8_t*)buf;
-  while (n_bytes > 0) {
-    const auto ret = read(sock_fd, buff, n_bytes);
-    // TODO: be more selective about which errors are fatal
-    if (ret < 0) return -1;
-    n_bytes -= ret;
-    buff    += ret;
-  }
-  return 0;
+void handle_rpc_ping(const Connection* const connection, RPCMessage* request) {
+  rpc_send_resp(
+    connection,
+    request,
+    request->body,
+    request->mark.data_len,
+    RPC_STATUS_OK
+  );
 }
+
+void handle_rpc_write(const Connection* const connection);
+void handle_rpc_read(const Connection* const connection);
+void handle_rpc_chksum(const Connection* const connection);
+void handle_rpc_delete(const Connection* const connection);
+void handle_rpc_stats(const Connection* const connection);
+void handle_rpc_reset(const Connection* const connection);
+void handle_rpc_quit(const Connection* const connection);
 
 RpcAction handle_rpc_conn(const Connection* const connection) {
   const int sock_fd = connection->sock_fd;
@@ -84,12 +81,24 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
       fprintf(stderr, "%d: failed to read: %m", port);
       return RpcAction::CONTINUE;
     }
+    if (-1 == now_usec(&message.header.req_recv_time_us)) {
+      fprintf(stderr, "%d: failed to get time: %m", port);
+      return RpcAction::CONTINUE;
+    }
 
     printf("%d ", port);
     message.pretty_print();
 
     // Process command.
+    if (strncmp(message.header.method, "ping", 8) == 0) {
+      handle_rpc_ping(connection, &message);
+    } else {
+      fprintf(stderr, "%d: unrecognized command \"%.8s\"", port, message.header.method);
+      return RpcAction::CONTINUE;
+    }
+
     // On quit(), close socket.
+    free(message.body);
     break;
   }
 

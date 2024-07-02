@@ -74,6 +74,12 @@ int main(int argc, char** argv) {
   size_t n_bytes = 12;
   rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, "ping");
 
+  RPCMessage response;
+  if (-1 == rpc_recv_resp(&connection, &response)) {
+    printf("failed to receive the response: %m\n");
+  }
+  response.pretty_print();
+
   close(connection.sock_fd);
   return 0;
 }

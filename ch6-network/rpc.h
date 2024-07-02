@@ -38,6 +38,8 @@ static_assert(sizeof(RPCMark) == 16);
 const uint16_t TYPE_REQUEST  = 0;
 const uint16_t TYPE_RESPONSE = 1;
 
+const uint32_t RPC_STATUS_OK = 0;
+
 struct RPCHeader {
   // Unique ID number for each outstanding request.
   uint32_t rpc_id;
@@ -83,10 +85,6 @@ struct RPCMessage {
   RPCHeader header;
   uint8_t* body = NULL;
 
-  ~RPCMessage() {
-    free(body);
-  }
-
   void pretty_print();
 
   int send(int sock_fd);
@@ -101,4 +99,16 @@ int rpc_send_req(
   uint32_t parent_rpc,
   const char* method
 );
+
+int rpc_send_resp(
+  const Connection* connection,
+  const RPCMessage* request,
+  uint8_t* body,
+  size_t n_bytes,
+  uint32_t status
+);
+
+int rpc_recv_resp(const Connection* connection, RPCMessage* response);
+
+int now_usec(uint64_t* out);
 
