@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "assert.h"
 #include "network.h"
@@ -80,15 +81,18 @@ static_assert(sizeof(RPCHeader) == 72);
 struct RPCMessage {
   RPCMark mark;
   RPCHeader header;
+  uint8_t* body = NULL;
 
-  // Returns a pointer to the first byte after `header`, where the body of the
-  // request / response is stored.
-  uint8_t* data();
+  ~RPCMessage() {
+    free(body);
+  }
+
+  void pretty_print();
 
   int send(int sock_fd);
-};
 
-static_assert(sizeof(RPCMessage) == sizeof(RPCMark) + sizeof(RPCHeader));
+  size_t size();
+};
 
 int rpc_send_req(
   const Connection* connection,

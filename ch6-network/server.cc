@@ -41,51 +41,53 @@ void handle_rpc_stats();
 void handle_rpc_reset();
 void handle_rpc_quit();
 
+int readn(int sock_fd, void* buf, size_t n_bytes) {
+  uint8_t* buff = (uint8_t*)buf;
+  while (n_bytes > 0) {
+    const auto ret = read(sock_fd, buff, n_bytes);
+    // TODO: be more selective about which errors are fatal
+    if (ret < 0) return -1;
+    n_bytes -= ret;
+    buff    += ret;
+  }
+  return 0;
+}
+
 RpcAction handle_rpc_conn(const Connection* const connection) {
   const int sock_fd = connection->sock_fd;
   const uint16_t port = connection->server_port;
 
   while (true) {
+    RPCMessage message;
     // Read RPC mark.
-    printf("%d: reading rpc mark\n", port);
-    RPCMark rpc_mark;
-    size_t read_bytes = 0;
-    while (read_bytes < sizeof(RPCMark)) {
-      void* const buf = (void*) (read_bytes + (uint8_t*)&rpc_mark);
-      const auto ret = read(sock_fd, buf, sizeof(RPCMark) - read_bytes);
-      if (ret >= 0) read_bytes += ret;
-      else {
-        char* errstr = strerror(errno);
-        fprintf(stderr, "%d: failed to read: %s", port, errstr);
-        close(sock_fd);
-        return RpcAction::CONTINUE;
-        // TODO: be more selective about which errors are fatal
-      }
+    if (-1 == readn(sock_fd, (void*)&message.mark, sizeof(RPCMark))) {
+      fprintf(stderr, "%d: failed to read: %m", port);
+      return RpcAction::CONTINUE;
     }
-    printf("%d: ", port);
-    rpc_mark.pretty_print();
 
     // Read RPC header.
-    printf("%d: reading rpc header\n", port);
-    RPCHeader rpc_header;
-    read_bytes = 0;
-    while (read_bytes < rpc_mark.header_len) {
-      void* const buf = (void*) (read_bytes + (uint8_t*)&rpc_header);
-      const auto ret = read(sock_fd, buf, rpc_mark.header_len - read_bytes);
-      if (ret >= 0) read_bytes += ret;
-      else {
-        char* errstr = strerror(errno);
-
-        fprintf(stderr, "%d: failed to read: %s", port, errstr);
-        close(sock_fd);
-        return RpcAction::CONTINUE;
-        // TODO: be more selective about which errors are fatal
-      }
+    if (message.mark.header_len != sizeof(RPCHeader)) {
+      fprintf(
+        stderr, "%d: bad header len; expected %lu got %d\n",
+        port, sizeof(RPCHeader), message.mark.header_len
+      );
+      return RpcAction::CONTINUE;
     }
-    printf("%d ", port);
-    rpc_header.pretty_print();
+    if (-1 == readn(sock_fd, (void*)&message.header, sizeof(RPCHeader))) {
+      fprintf(stderr, "%d: failed to read: %m", port);
+      return RpcAction::CONTINUE;
+    }
 
     // Read RPC body.
+    message.body = (uint8_t*) malloc(message.mark.data_len);
+    if (-1 == readn(sock_fd, (void*)message.body, message.mark.data_len)) {
+      fprintf(stderr, "%d: failed to read: %m", port);
+      return RpcAction::CONTINUE;
+    }
+
+    printf("%d ", port);
+    message.pretty_print();
+
     // Process command.
     // On quit(), close socket.
     break;

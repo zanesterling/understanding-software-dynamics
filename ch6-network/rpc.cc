@@ -76,8 +76,13 @@ void RPCHeader::pretty_print() {
   );
 }
 
-uint8_t* RPCMessage::data() {
-  return sizeof(RPCMessage) + (uint8_t*) this;
+void RPCMessage::pretty_print() {
+  this->mark.pretty_print();
+  this->header.pretty_print();
+  for (size_t i = 0; i < this->mark.data_len; ++i) {
+    printf(" %02x", this->body[i]);
+  }
+  putc('\n', stdout);
 }
 
 int RPCMessage::send(int sock_fd) {
@@ -127,8 +132,9 @@ int rpc_send_req(
   strncpy(message.header.method, method, 8);
   message.header.status = 0;
 
-  size_t written_bytes = write(connection->sock_fd, &message, sizeof(RPCMessage));
-  if (written_bytes != sizeof(RPCMessage)) {
+  size_t mark_and_header = sizeof(RPCMark) + sizeof(RPCHeader);
+  size_t written_bytes = write(connection->sock_fd, &message, mark_and_header);
+  if (written_bytes != mark_and_header) {
     return -1;
   }
   written_bytes = write(connection->sock_fd, body, n_bytes);
