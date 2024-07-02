@@ -33,10 +33,10 @@ void RPCHeader::pretty_print() {
     "RPCHeader:\n"
     "\trpc_id:  0x%x\n"
     "\tparent:  0x%x\n"
-    "\tt1:      %lu\n"
-    "\tt2:      %lu\n"
-    "\tt3:      %lu\n"
-    "\tt4:      %lu\n"
+    "\tt1:      %lus %luus\n"
+    "\tt2:      %lus %luus\n"
+    "\tt3:      %lus %luus\n"
+    "\tt4:      %lus %luus\n"
     "\tclient:  %d.%d.%d.%d:%d\n"
     "\tserver:  %d.%d.%d.%d:%d\n"
     "\treq_len: 2^%u\n"
@@ -47,10 +47,14 @@ void RPCHeader::pretty_print() {
 
     rpc_id,
     parent,
-    req_send_time_us,
-    req_recv_time_us,
-    res_send_time_us,
-    res_recv_time_us,
+    req_send_time_us / 1000000,
+    req_send_time_us % 1000000,
+    req_recv_time_us / 1000000,
+    req_recv_time_us % 1000000,
+    res_send_time_us / 1000000,
+    res_send_time_us % 1000000,
+    res_recv_time_us / 1000000,
+    res_recv_time_us % 1000000,
 
     (client_ip & 0xff000000) >> 24,
     (client_ip & 0x00ff0000) >> 16,
