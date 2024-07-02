@@ -9,6 +9,18 @@
 #include "network.h"
 #include "rpc.h"
 
+struct KeyConfig {
+  const char* key_base;
+  bool increment_base;
+  size_t padded_length;
+};
+
+struct ValueConfig {
+  const char* value_base;
+  bool increment_base;
+  size_t padded_length;
+};
+
 struct Args {
   char* server;
   uint16_t port;
@@ -18,8 +30,8 @@ struct Args {
   bool seed1 = false;
   bool verbose = false;
   char* command;
-  // TODO: key config
-  // TODO: value config
+  KeyConfig key_config;
+  ValueConfig value_config;
 };
 
 void usage() {
