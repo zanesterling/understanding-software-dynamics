@@ -58,6 +58,7 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
         char* errstr = strerror(errno);
         fprintf(stderr, "%d: failed to read: %s", port, errstr);
         close(sock_fd);
+        return RpcAction::CONTINUE;
         // TODO: be more selective about which errors are fatal
       }
     }
@@ -77,6 +78,7 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
 
         fprintf(stderr, "%d: failed to read: %s", port, errstr);
         close(sock_fd);
+        return RpcAction::CONTINUE;
         // TODO: be more selective about which errors are fatal
       }
     }
