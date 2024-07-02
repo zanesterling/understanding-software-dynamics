@@ -33,6 +33,7 @@ enum class RpcAction {
 };
 
 void handle_rpc_ping(const Connection* const connection, RPCMessage* request) {
+  // Echo the request back to the client.
   rpc_send_resp(
     connection,
     request,
@@ -51,41 +52,11 @@ void handle_rpc_reset(const Connection* const connection);
 void handle_rpc_quit(const Connection* const connection);
 
 RpcAction handle_rpc_conn(const Connection* const connection) {
-  const int sock_fd = connection->sock_fd;
   const uint16_t port = connection->server_port;
 
   while (true) {
     RPCMessage message;
-    // Read RPC mark.
-    if (-1 == readn(sock_fd, (void*)&message.mark, sizeof(RPCMark))) {
-      fprintf(stderr, "%d: failed to read: %m", port);
-      return RpcAction::CONTINUE;
-    }
-
-    // Read RPC header.
-    if (message.mark.header_len != sizeof(RPCHeader)) {
-      fprintf(
-        stderr, "%d: bad header len; expected %lu got %d\n",
-        port, sizeof(RPCHeader), message.mark.header_len
-      );
-      return RpcAction::CONTINUE;
-    }
-    if (-1 == readn(sock_fd, (void*)&message.header, sizeof(RPCHeader))) {
-      fprintf(stderr, "%d: failed to read: %m", port);
-      return RpcAction::CONTINUE;
-    }
-
-    // Read RPC body.
-    message.body = (uint8_t*) malloc(message.mark.data_len);
-    if (-1 == readn(sock_fd, (void*)message.body, message.mark.data_len)) {
-      fprintf(stderr, "%d: failed to read: %m", port);
-      return RpcAction::CONTINUE;
-    }
-    if (-1 == now_usec(&message.header.req_recv_time_us)) {
-      fprintf(stderr, "%d: failed to get time: %m", port);
-      return RpcAction::CONTINUE;
-    }
-
+    rpc_recv_req(connection, &message);
     printf("%d ", port);
     message.pretty_print();
 

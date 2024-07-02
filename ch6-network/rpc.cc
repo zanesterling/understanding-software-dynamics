@@ -173,6 +173,26 @@ int rpc_send_resp(
   return 0;
 }
 
+int rpc_recv_req(const Connection* connection, RPCMessage* request) {
+  if (-1 == readn(connection->sock_fd, &request->mark, sizeof(RPCMark))) {
+    return -1;
+  }
+  if (request->mark.header_len != sizeof(RPCHeader)) {
+    return -1;
+  }
+  if (-1 == readn(connection->sock_fd, &request->header, sizeof(RPCHeader))) {
+    return -1;
+  }
+  request->body = (uint8_t*)malloc(request->mark.data_len);
+  if (-1 == readn(connection->sock_fd, request->body, request->mark.data_len)) {
+    return -1;
+  }
+  if (-1 == now_usec(&request->header.req_recv_time_us)) {
+    return -1;
+  }
+  return 0;
+}
+
 int rpc_recv_resp(const Connection* connection, RPCMessage* response) {
   if (-1 == readn(connection->sock_fd, &response->mark, sizeof(RPCMark))) {
     return -1;

@@ -108,6 +108,8 @@ int rpc_send_resp(
   uint32_t status
 );
 
+int rpc_recv_req(const Connection* connection, RPCMessage* request);
+
 int rpc_recv_resp(const Connection* connection, RPCMessage* response);
 
 int now_usec(uint64_t* out);
