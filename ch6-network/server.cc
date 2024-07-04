@@ -19,6 +19,9 @@
 #define ntoh16 ntohs
 #define ntoh32 ntohl
 
+bool verbose = false;
+#define VERBOSE(x) if (verbose) { x; }
+
 struct ListenArgs {
   const int port;
 
@@ -57,8 +60,10 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
   while (true) {
     RPCMessage message;
     rpc_recv_req(connection, &message);
-    printf("%d ", port);
-    message.pretty_print();
+    VERBOSE({
+      printf("%d ", port);
+      message.pretty_print();
+    });
 
     // Process command.
     if (strncmp(message.header.method, "ping", 8) == 0) {
@@ -73,7 +78,7 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
     break;
   }
 
-  printf("ending connection\n");
+  VERBOSE(printf("ending connection\n"));
   return RpcAction::CONTINUE;
 }
 
@@ -86,12 +91,12 @@ void* rpc_listen(void* void_args) {
     fprintf(stderr, "%d: couldn't open listening socket: %s\n", args->port, errstr);
     return NULL;
   }
-  printf("%d: listening!\n", args->port);
+  VERBOSE(printf("%d: listening!\n", args->port));
 
   while (true) {
     Connection connection;
     tcp_accept(listen_sock_fd, &connection);
-    printf(
+    VERBOSE(printf(
       "%d: accepted connection from %d.%d.%d.%d:%d to %d.%d.%d.%d:%d\n",
       args->port,
       (connection.client_ip & 0xff000000) >> 24,
@@ -104,7 +109,7 @@ void* rpc_listen(void* void_args) {
       (connection.server_ip & 0x0000ff00) >> 8,
        connection.server_ip & 0x000000ff,
       connection.server_port
-    );
+    ));
 
     // Handle as many RPCs as they send.
     const auto action = handle_rpc_conn(&connection);
@@ -113,16 +118,16 @@ void* rpc_listen(void* void_args) {
     if (action == RpcAction::QUIT) break;
   }
 
-  printf("%d: closing, goodbye!\n", args->port);
+  VERBOSE(printf("%d: closing, goodbye!\n", args->port));
   close(listen_sock_fd);
   return NULL;
 }
 
-void usage(FILE* fd, char* argv0) {
+void usage(FILE* fd, const char* argv0) {
   fprintf(
     fd,
     "usage:\n"
-    "\t%s [START_PORT END_PORT]\n"
+    "\t%s [-v] [START_PORT END_PORT]\n"
     "\n"
     "Opens a dedicated listening thread for each port in the inclusive range"
     " [START_PORT, END_PORT].\n"
@@ -132,36 +137,64 @@ void usage(FILE* fd, char* argv0) {
   );
 }
 
-int main(int argc, char** argv) {
-  if (argc != 1 && argc != 3) {
-    usage(stderr, argv[0]);
+struct Args {
+  bool verbose = false;
+  int start_port;
+  int end_port;
+};
+
+Args parse_args(int argc, const char* const* argv) {
+  Args args;
+
+  const char* bin_name = argv[0];
+  argc--; argv++;
+
+  if (argc > 0 && strcmp(argv[0], "-v") == 0) {
+    args.verbose = true;
+    argc--; argv++;
+  }
+
+  if (argc == 0) {
+    args.start_port = 12345;
+    args.end_port   = 12348;
+  } else if (argc == 2) {
+    args.start_port = atoi(argv[1]);
+    args.end_port   = atoi(argv[2]);
+  } else {
+    usage(stderr, bin_name);
     exit(1);
   }
 
-  int start_port = 12345;
-  int end_port   = 12348;
-  if (argc == 3) {
-    start_port = atoi(argv[1]);
-    end_port   = atoi(argv[2]);
-  }
-  if (end_port < start_port) {
+  if (args.end_port < args.start_port) {
     fprintf(
       stderr,
       "err: END_PORT must not be less than START_PORT\n"
       "but got start=%d end=%d\n",
-      start_port, end_port
+      args.start_port,
+      args.end_port
     );
-    usage(stderr, argv[0]);
+    usage(stderr, bin_name);
     exit(1);
   }
 
-  printf("Starting rpc_listen() threads for port ids [%d,%d].\n", start_port, end_port);
+  return args;
+}
 
-  const int n_threads = end_port - start_port + 1;
+int main(int argc, char** argv) {
+  Args args = parse_args(argc, argv);
+  verbose = args.verbose;
+
+  VERBOSE(printf(
+    "Starting rpc_listen() threads for port ids [%d,%d].\n",
+    args.start_port,
+    args.end_port
+  ));
+
+  const int n_threads = args.end_port - args.start_port + 1;
   pthread_t* thread_ids = (pthread_t*) malloc(sizeof(pthread_t) * n_threads);
   for (int i = 0; i < n_threads; ++i) {
-    int port = start_port + i;
-    printf("main: start thread for port %d\n", port);
+    int port = args.start_port + i;
+    VERBOSE(printf("main: start thread for port %d\n", port));
     if (0 != pthread_create(&thread_ids[i], NULL, rpc_listen, new ListenArgs(port))) { // error
       perror("couldn't spawn the requested number of rpc_listen() threads");
       exit(1);
@@ -174,7 +207,7 @@ int main(int argc, char** argv) {
     if (0 != pthread_join(thread_ids[i], &retval)) {
       perror("couldn't join thread\n");
     }
-    printf("main: joined thread for port %d\n", start_port + i);
+    VERBOSE(printf("main: joined thread for port %d\n", args.start_port + i));
   }
 
   return 0;
