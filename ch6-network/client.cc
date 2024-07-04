@@ -87,7 +87,7 @@ Args parse_args(int argc, char** argv) {
 int main(int argc, char** argv) {
   Args args = parse_args(argc, argv);
 
-  for (int i = 0; i < args.n_conns; ++i) {
+  for (unsigned int i = 0; i < args.n_conns; ++i) {
     Connection connection;
     if (-1 == tcp_connect(args.server, args.port, &connection)) {
       char* errstr = strerror(errno);
@@ -112,16 +112,25 @@ int main(int argc, char** argv) {
       );
     }
 
-    for (int j = 0; j < args.rpcs_per_conn; ++j) {
+    for (unsigned int j = 0; j < args.rpcs_per_conn; ++j) {
       const uint8_t* body = (uint8_t*)"foo bar baz";
       size_t n_bytes = 12;
       rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, "ping");
 
       RPCMessage response;
       if (-1 == rpc_recv_resp(&connection, &response)) {
-        printf("failed to receive the response: %m\n");
+        fprintf(stderr, "failed to receive the response: %m\n");
+        exit(1);
       }
       if (args.verbose) response.pretty_print();
+
+      uint64_t now;
+      do {
+        if (-1 == now_usec(&now)) {
+          fprintf(stderr, "failed to get current time: %m\n");
+          exit(1);
+        }
+      } while (now - response.header.res_recv_time_us < args.wait_ms * 1000);
     }
 
     close(connection.sock_fd);
