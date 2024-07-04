@@ -119,7 +119,7 @@ int readn(int sock_fd, void* buf, size_t n_bytes) {
   while (n_bytes > 0) {
     const auto ret = read(sock_fd, buff, n_bytes);
     // TODO: be more selective about which errors are fatal
-    if (ret < 0) return -1;
+    if (ret <= 0) return -1;
     n_bytes -= ret;
     buff    += ret;
   }

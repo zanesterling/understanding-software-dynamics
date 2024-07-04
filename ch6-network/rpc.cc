@@ -90,7 +90,7 @@ int RPCMessage::send(int sock_fd) {
   return write(sock_fd, this, n_bytes);
 }
 
-uint32_t next_rpc_id = 0;
+uint32_t next_rpc_id = 1;
 
 static inline uint8_t ilog2(const uint32_t x) {
   uint32_t y;

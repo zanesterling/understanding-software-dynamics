@@ -58,8 +58,9 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
   const uint16_t port = connection->server_port;
 
   while (true) {
+    VERBOSE(printf("%d: listening for message\n", port));
     RPCMessage message;
-    rpc_recv_req(connection, &message);
+    if (-1 == rpc_recv_req(connection, &message)) break;
     VERBOSE({
       printf("%d ", port);
       message.pretty_print();
@@ -75,7 +76,6 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
 
     // On quit(), close socket.
     free(message.body);
-    break;
   }
 
   VERBOSE(printf("ending connection\n"));
