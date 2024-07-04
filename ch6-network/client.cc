@@ -87,41 +87,46 @@ Args parse_args(int argc, char** argv) {
 int main(int argc, char** argv) {
   Args args = parse_args(argc, argv);
 
-  Connection connection;
-  if (-1 == tcp_connect(args.server, args.port, &connection)) {
-    char* errstr = strerror(errno);
-    fprintf(stderr, "failed to connect to %s:%d: %s\n",
-            args.server, args.port, errstr);
-    exit(1);
+  for (int i = 0; i < args.n_conns; ++i) {
+    Connection connection;
+    if (-1 == tcp_connect(args.server, args.port, &connection)) {
+      char* errstr = strerror(errno);
+      fprintf(stderr, "failed to connect to %s:%d: %s\n",
+              args.server, args.port, errstr);
+      exit(1);
+    }
+
+    if (args.verbose) {
+      printf(
+        "client connected from %d.%d.%d.%d:%d to %d.%d.%d.%d:%d\n",
+        (connection.client_ip & 0xff000000) >> 24,
+        (connection.client_ip & 0x00ff0000) >> 16,
+        (connection.client_ip & 0x0000ff00) >> 8,
+         connection.client_ip & 0x000000ff,
+        connection.client_port,
+        (connection.server_ip & 0xff000000) >> 24,
+        (connection.server_ip & 0x00ff0000) >> 16,
+        (connection.server_ip & 0x0000ff00) >> 8,
+         connection.server_ip & 0x000000ff,
+        connection.server_port
+      );
+    }
+
+    for (int j = 0; j < args.rpcs_per_conn; ++j) {
+      const uint8_t* body = (uint8_t*)"foo bar baz";
+      size_t n_bytes = 12;
+      rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, "ping");
+
+      RPCMessage response;
+      if (-1 == rpc_recv_resp(&connection, &response)) {
+        printf("failed to receive the response: %m\n");
+      }
+      if (args.verbose) response.pretty_print();
+    }
+
+    close(connection.sock_fd);
   }
 
-  if (args.verbose) {
-    printf(
-      "client connected from %d.%d.%d.%d:%d to %d.%d.%d.%d:%d\n",
-      (connection.client_ip & 0xff000000) >> 24,
-      (connection.client_ip & 0x00ff0000) >> 16,
-      (connection.client_ip & 0x0000ff00) >> 8,
-       connection.client_ip & 0x000000ff,
-      connection.client_port,
-      (connection.server_ip & 0xff000000) >> 24,
-      (connection.server_ip & 0x00ff0000) >> 16,
-      (connection.server_ip & 0x0000ff00) >> 8,
-       connection.server_ip & 0x000000ff,
-      connection.server_port
-    );
-  }
-
-  const uint8_t* body = (uint8_t*)"foo bar baz";
-  size_t n_bytes = 12;
-  rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, "ping");
-
-  RPCMessage response;
-  if (-1 == rpc_recv_resp(&connection, &response)) {
-    printf("failed to receive the response: %m\n");
-  }
-  if (args.verbose) response.pretty_print();
-
-  close(connection.sock_fd);
   return 0;
 }
 
