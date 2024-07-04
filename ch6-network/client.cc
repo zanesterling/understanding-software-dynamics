@@ -95,19 +95,21 @@ int main(int argc, char** argv) {
     exit(1);
   }
 
-  printf(
-    "client connected from %d.%d.%d.%d:%d to %d.%d.%d.%d:%d\n",
-    (connection.client_ip & 0xff000000) >> 24,
-    (connection.client_ip & 0x00ff0000) >> 16,
-    (connection.client_ip & 0x0000ff00) >> 8,
-     connection.client_ip & 0x000000ff,
-    connection.client_port,
-    (connection.server_ip & 0xff000000) >> 24,
-    (connection.server_ip & 0x00ff0000) >> 16,
-    (connection.server_ip & 0x0000ff00) >> 8,
-     connection.server_ip & 0x000000ff,
-    connection.server_port
-  );
+  if (args.verbose) {
+    printf(
+      "client connected from %d.%d.%d.%d:%d to %d.%d.%d.%d:%d\n",
+      (connection.client_ip & 0xff000000) >> 24,
+      (connection.client_ip & 0x00ff0000) >> 16,
+      (connection.client_ip & 0x0000ff00) >> 8,
+       connection.client_ip & 0x000000ff,
+      connection.client_port,
+      (connection.server_ip & 0xff000000) >> 24,
+      (connection.server_ip & 0x00ff0000) >> 16,
+      (connection.server_ip & 0x0000ff00) >> 8,
+       connection.server_ip & 0x000000ff,
+      connection.server_port
+    );
+  }
 
   const uint8_t* body = (uint8_t*)"foo bar baz";
   size_t n_bytes = 12;
@@ -117,7 +119,7 @@ int main(int argc, char** argv) {
   if (-1 == rpc_recv_resp(&connection, &response)) {
     printf("failed to receive the response: %m\n");
   }
-  response.pretty_print();
+  if (args.verbose) response.pretty_print();
 
   close(connection.sock_fd);
   return 0;
