@@ -52,7 +52,6 @@ void handle_rpc_chksum(const Connection* const connection);
 void handle_rpc_delete(const Connection* const connection);
 void handle_rpc_stats(const Connection* const connection);
 void handle_rpc_reset(const Connection* const connection);
-void handle_rpc_quit(const Connection* const connection);
 
 RpcAction handle_rpc_conn(const Connection* const connection) {
   const uint16_t port = connection->server_port;
@@ -69,12 +68,22 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
     // Process command.
     if (strncmp(message.header.method, "ping", 8) == 0) {
       handle_rpc_ping(connection, &message);
+    } else if (strncmp(message.header.method, "quit", 8) == 0) {
+      // On quit(), close socket.
+      rpc_send_resp(
+        connection,
+        &message,
+        NULL,
+        0,
+        RPC_STATUS_OK
+      );
+      free(message.body);
+      return RpcAction::QUIT;
     } else {
       fprintf(stderr, "%d: unrecognized command \"%.8s\"", port, message.header.method);
       return RpcAction::CONTINUE;
     }
 
-    // On quit(), close socket.
     free(message.body);
   }
 
