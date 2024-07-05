@@ -115,7 +115,7 @@ int main(int argc, char** argv) {
     for (unsigned int j = 0; j < args.rpcs_per_conn; ++j) {
       const uint8_t* body = (uint8_t*)"foo bar baz";
       size_t n_bytes = 12;
-      rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, "ping");
+      rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, args.command);
 
       RPCMessage response;
       if (-1 == rpc_recv_resp(&connection, &response)) {
