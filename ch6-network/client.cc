@@ -16,6 +16,13 @@ struct StrConfig {
   size_t padded_length = 0;
 };
 
+enum class Command {
+  Ping,
+  Write,
+  Read,
+  Quit
+};
+
 struct Args {
   char* server;
   uint16_t port;
@@ -24,7 +31,8 @@ struct Args {
   uint32_t wait_ms = 0;
   bool seed1 = false;
   bool verbose = false;
-  char* command;
+  Command command;
+  char* command_str;
   StrConfig key_config;
   StrConfig value_config;
 };
@@ -74,7 +82,18 @@ Args parse_args(int argc, char** argv) {
   }
 
   if (next_arg >= argc) usage(), exit(1);
-  args.command = argv[next_arg++];
+  args.command_str = argv[next_arg++];
+  if (strcmp(args.command_str, "ping") == 0) {
+    args.command = Command::Ping;
+  } else if (strcmp(args.command_str, "write") == 0) {
+    args.command = Command::Write;
+  } else if (strcmp(args.command_str, "quit") == 0) {
+    args.command = Command::Quit;
+  } else {
+    fprintf(stderr, "unrecognized command: \"%s\"\n", args.command_str);
+    usage();
+    exit(1);
+  }
 
   for (; next_arg < argc; ++next_arg) {
     // TODO: factor out common logic.
@@ -118,7 +137,7 @@ Args parse_args(int argc, char** argv) {
   }
 
   // Done parsing, let's validate.
-  if (strcmp(args.command, "write") == 0) {
+  if (Command::Write == args.command) {
     bool fail = false;
     if (NULL == args.key_config.base) {
       fprintf(stderr, "write command expects -key arg\n");
@@ -165,25 +184,34 @@ int main(int argc, char** argv) {
     for (unsigned int j = 0; j < args.rpcs_per_conn; ++j) {
       const uint8_t* body = NULL;
       size_t n_bytes = 0;
-      if (strcmp(args.command, "ping") == 0) {
-        // TODO: full val gen logic
-        body = (uint8_t*)"foo bar baz";
-        n_bytes = 12;
-      } else if (strcmp(args.command, "quit") == 0) {
-      } else if (strcmp(args.command, "write") == 0) {
-        // TODO: full key,val gen logic
-        const auto write_req = WriteRequest::Make(
-          args.key_config.base,
-          strlen(args.key_config.base),
-          args.value_config.base,
-          strlen(args.value_config.base)
-        );
-        body = (uint8_t*) write_req;
-        n_bytes = write_req->full_len();
-      } else {
-        fprintf(stderr, "unrecognized command: \"%s\"\n", args.command);
+      switch (args.command) {
+        case Command::Ping:
+          // TODO: full val gen logic
+          body = (uint8_t*)"foo bar baz";
+          n_bytes = 12;
+          break;
+
+        case Command::Quit:
+          break;
+
+        case Command::Write: {
+          // TODO: full key,val gen logic
+          const auto write_req = WriteRequest::Make(
+            args.key_config.base,
+            strlen(args.key_config.base),
+            args.value_config.base,
+            strlen(args.value_config.base)
+          );
+          body = (uint8_t*) write_req;
+          n_bytes = write_req->full_len();
+          break;
+        }
+
+        default:
+          fprintf(stderr, "unrecognized command: \"%s\"\n", args.command_str);
+          exit(1);
       }
-      rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, args.command);
+      rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, args.command_str);
 
       RPCMessage response;
       if (-1 == rpc_recv_resp(&connection, &response)) {
