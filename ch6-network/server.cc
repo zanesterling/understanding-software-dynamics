@@ -49,7 +49,7 @@ void handle_rpc_ping(const Connection* const connection, RPCMessage* request) {
     request,
     request->body,
     request->mark.data_len,
-    RPC_STATUS_OK
+    RpcStatus::Ok
   );
 }
 
@@ -66,7 +66,7 @@ void handle_rpc_write(const Connection* const connection, RPCMessage* request) {
     request,
     NULL,
     0,
-    RPC_STATUS_OK
+    RpcStatus::Ok
   );
 }
 
@@ -98,7 +98,7 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
         &message,
         NULL,
         0,
-        RPC_STATUS_OK
+        RpcStatus::Ok
       );
       free(message.body);
       return RpcAction::QUIT;

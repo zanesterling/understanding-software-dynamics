@@ -20,11 +20,19 @@ void RPCMark::pretty_print() {
   );
 }
 
-const char* message_type_str(uint16_t message_type) {
+const char* message_type_str(RpcMessageType message_type) {
   switch (message_type) {
-    case TYPE_REQUEST:  return "REQUEST";
-    case TYPE_RESPONSE: return "RESPONSE";
-    default:            return "UNRECOGNIZED";
+    case RpcMessageType::Request:  return "REQUEST";
+    case RpcMessageType::Response: return "RESPONSE";
+    default:                       return "UNRECOGNIZED";
+  }
+}
+
+const char* status_str(RpcStatus status) {
+  switch (status) {
+    case RpcStatus::Ok:     return "OK";
+    case RpcStatus::BadArg: return "BAD_ARG";
+    default:                return "UNRECOGNIZED";
   }
 }
 
@@ -43,7 +51,7 @@ void RPCHeader::pretty_print() {
     "\tres_len: 2^%u\n"
     "\ttype:    %s\n"
     "\tmethod:  %.8s\n"
-    "\tstatus:  %d\n",
+    "\tstatus:  %s\n",
 
     rpc_id,
     parent,
@@ -72,7 +80,7 @@ void RPCHeader::pretty_print() {
 
     message_type_str(message_type),
     method,
-    status
+    status_str(status)
   );
 }
 
@@ -128,9 +136,9 @@ int rpc_send_req(
 
   size_t mark_and_header = sizeof(RPCMark) + sizeof(RPCHeader);
   message.header.req_len_log = ilog2(n_bytes + mark_and_header);
-  message.header.message_type = TYPE_REQUEST;
+  message.header.message_type = RpcMessageType::Request;
   strncpy(message.header.method, method, 8);
-  message.header.status = 0;
+  message.header.status = RpcStatus::Ok;
 
   size_t written_bytes = write(connection->sock_fd, &message, mark_and_header);
   if (written_bytes != mark_and_header) {
@@ -148,7 +156,7 @@ int rpc_send_resp(
   const RPCMessage* request,
   uint8_t* body,
   size_t n_bytes,
-  uint32_t status
+  RpcStatus status
 ) {
   RPCMessage message;
   memcpy(&message, request, sizeof(RPCMessage));
@@ -159,7 +167,7 @@ int rpc_send_resp(
   if (-1 == now_usec(&message.header.res_send_time_us)) return -1;
   size_t mark_and_header = sizeof(RPCMark) + sizeof(RPCHeader);
   message.header.res_len_log = ilog2(n_bytes + mark_and_header);
-  message.header.message_type = TYPE_RESPONSE;
+  message.header.message_type = RpcMessageType::Response;
   message.header.status = status;
 
   size_t written_bytes = write(connection->sock_fd, &message, mark_and_header);

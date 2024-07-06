@@ -35,10 +35,15 @@ struct RPCMark {
 
 static_assert(sizeof(RPCMark) == 16);
 
-const uint16_t TYPE_REQUEST  = 0;
-const uint16_t TYPE_RESPONSE = 1;
+enum class RpcMessageType : uint16_t {
+  Request,
+  Response
+};
 
-const uint32_t RPC_STATUS_OK = 0;
+enum class RpcStatus : uint32_t {
+  Ok,
+  BadArg
+};
 
 struct RPCHeader {
   // Unique ID number for each outstanding request.
@@ -65,13 +70,13 @@ struct RPCHeader {
   uint8_t res_len_log;
 
   // Request, response, or some other kind of message.
-  uint16_t message_type;
+  RpcMessageType message_type;
 
   // ASCII name of the routine being called, zero-padded.
   char method[8];
 
   // Return-value status indicating success, failure, or specific error number.
-  uint32_t status;
+  RpcStatus status;
 
   char pad[4];
 
@@ -105,7 +110,7 @@ int rpc_send_resp(
   const RPCMessage* request,
   uint8_t* body,
   size_t n_bytes,
-  uint32_t status
+  RpcStatus status
 );
 
 int rpc_recv_req(const Connection* connection, RPCMessage* request);
