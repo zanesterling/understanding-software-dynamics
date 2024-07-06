@@ -57,6 +57,13 @@ void handle_rpc_write(const Connection* const connection, RPCMessage* request) {
   SpinLock spinlock(&lock);
 
   WriteRequest* write_req = WriteRequest::FromBody(request->body, request->mark.data_len);
+  if (NULL == write_req) {
+    fprintf(
+      stderr, "%d: failed to parse write request\n",
+      connection->server_port
+    );
+    rpc_send_resp(connection, request, NULL, 0, RpcStatus::BadArg);
+  }
   std::string key(write_req->key(), write_req->key_len());
   std::string value(write_req->value(), write_req->value_len());
   keystore.emplace(key, value);
