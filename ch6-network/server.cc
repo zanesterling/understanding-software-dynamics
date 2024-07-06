@@ -54,8 +54,6 @@ void handle_rpc_ping(const Connection* const connection, RPCMessage* request) {
 }
 
 void handle_rpc_write(const Connection* const connection, RPCMessage* request) {
-  SpinLock spinlock(&lock);
-
   WriteRequest* write_req = WriteRequest::FromBody(request->body, request->mark.data_len);
   if (NULL == write_req) {
     fprintf(
@@ -67,7 +65,11 @@ void handle_rpc_write(const Connection* const connection, RPCMessage* request) {
   }
   std::string key(write_req->key(), write_req->key_len());
   std::string value(write_req->value(), write_req->value_len());
-  keystore.emplace(key, value);
+
+  {
+    SpinLock spinlock(&lock);
+    keystore.emplace(key, value);
+  }
 
   rpc_send_resp(
     connection,
