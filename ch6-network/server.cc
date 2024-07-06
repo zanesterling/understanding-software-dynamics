@@ -42,7 +42,10 @@ enum class RpcAction {
   CONTINUE,
 };
 
-void handle_rpc_ping(const Connection* const connection, RPCMessage* request) {
+void handle_rpc_ping(
+  const Connection* const connection,
+  const RPCMessage* const request
+) {
   // Echo the request back to the client.
   rpc_send_resp(
     connection,
@@ -53,7 +56,10 @@ void handle_rpc_ping(const Connection* const connection, RPCMessage* request) {
   );
 }
 
-void handle_rpc_write(const Connection* const connection, RPCMessage* request) {
+void handle_rpc_write(
+  const Connection* const connection,
+  const RPCMessage* const request
+) {
   WriteRequest* write_req = WriteRequest::FromBody(request->body, request->mark.data_len);
   if (NULL == write_req) {
     fprintf(
