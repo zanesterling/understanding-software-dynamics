@@ -19,6 +19,13 @@ class WriteRequest {
   uint32_t value_len_;
 
 public:
+  static WriteRequest* Make(
+    const char* key,
+    uint8_t key_len,
+    const char* value,
+    uint32_t value_len
+  );
+
   // Parses an RPC body into a WriteRequest, returning a non-owning
   // pointer to the request.
   //
@@ -32,5 +39,6 @@ public:
   char* value();
   size_t key_len();
   size_t value_len();
+  size_t full_len();
 };
 
