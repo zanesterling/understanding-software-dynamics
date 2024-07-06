@@ -253,5 +253,7 @@ int main(int argc, char** argv) {
     VERBOSE(printf("main: joined thread for port %d\n", args.start_port + i));
   }
 
+  VERBOSE(puts("main: last thread joined; terminating\n"));
+
   return 0;
 }
