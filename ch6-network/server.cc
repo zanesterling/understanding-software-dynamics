@@ -99,6 +99,8 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
     // Process command.
     if (strncmp(message.header.method, "ping", 8) == 0) {
       handle_rpc_ping(connection, &message);
+    } else if (strncmp(message.header.method, "write", 8) == 0) {
+      handle_rpc_write(connection, &message);
     } else if (strncmp(message.header.method, "quit", 8) == 0) {
       // On quit(), close socket.
       rpc_send_resp(
