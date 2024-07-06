@@ -2,15 +2,18 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 // A string with a length.
 // The string need not be null-terminated.
-// Does not own its data pointer.
 struct LenStr {
   size_t length;
-  char* data;
+  char* data; // Owned.
 
   LenStr(size_t length, char* data) : length(length), data(data) {}
+  ~LenStr() {
+    free(data);
+  }
 };
 
 // Stored in the RPCMessage::body.

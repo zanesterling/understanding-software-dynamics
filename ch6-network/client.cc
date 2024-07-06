@@ -155,6 +155,33 @@ Args parse_args(int argc, char** argv) {
   return args;
 }
 
+// Produce the nth string according to the given StrConfig.
+void gen_str_direct(
+  const StrConfig* const config,
+  const int n,
+  size_t* const length,
+  char** const data
+) {
+  if (NULL == config->base) {
+    *length = 12;
+    *data = (char*)malloc(*length);
+    memcpy(*data, "foo bar baz", *length);
+    return;
+  }
+  // TODO: full gen logic include increment and padlen.
+  *length = strlen(config->base);
+  *data = (char*)malloc(*length);
+  memcpy(*data, config->base, *length);
+}
+
+// Produce the nth string according to the given StrConfig.
+LenStr gen_str(const StrConfig* const config, const int n) {
+  size_t length;
+  char* data;
+  gen_str_direct(config, n, &length, &data);
+  return LenStr(length, data);
+}
+
 int main(int argc, char** argv) {
   Args args = parse_args(argc, argv);
 
@@ -184,25 +211,22 @@ int main(int argc, char** argv) {
     }
 
     for (unsigned int j = 0; j < args.rpcs_per_conn; ++j) {
-      const uint8_t* body = NULL;
+      uint8_t* body = NULL;
       size_t n_bytes = 0;
       switch (args.command) {
         case Command::Ping:
-          // TODO: full val gen logic
-          body = (uint8_t*)"foo bar baz";
-          n_bytes = 12;
+          gen_str_direct(&args.value_config, j, &n_bytes, (char**)&body);
           break;
 
         case Command::Quit:
           break;
 
         case Command::Write: {
-          // TODO: full key,val gen logic
+          LenStr key   = gen_str(&args.key_config,   j); // TODO
+          LenStr value = gen_str(&args.value_config, j);
           const auto write_req = WriteRequest::Make(
-            args.key_config.base,
-            strlen(args.key_config.base),
-            args.value_config.base,
-            strlen(args.value_config.base)
+            key.data,   key.length,
+            value.data, value.length
           );
           body = (uint8_t*) write_req;
           n_bytes = write_req->full_len();
@@ -210,9 +234,7 @@ int main(int argc, char** argv) {
         }
 
         case Command::Read: {
-          // TODO: full key,val gen logic
-          body = (uint8_t*) args.key_config.base;
-          n_bytes = strlen(args.key_config.base);
+          gen_str_direct(&args.key_config, j, &n_bytes, (char**)&body);
           break;
         }
 
@@ -221,6 +243,7 @@ int main(int argc, char** argv) {
           exit(1);
       }
       rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, args.command_str);
+      free(body);
 
       RPCMessage response;
       if (-1 == rpc_recv_resp(&connection, &response)) {
