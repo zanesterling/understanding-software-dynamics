@@ -86,7 +86,41 @@ void handle_rpc_write(
   );
 }
 
-void handle_rpc_read(const Connection* const connection);
+void handle_rpc_read(const Connection* const connection, RPCMessage* request) {
+  const std::string key((char*)request->body, request->mark.data_len);
+
+  bool found;
+  std::string result;
+  {
+    SpinLock spinlock(&lock);
+    const auto iter = keystore.find(key);
+    if (iter == keystore.end()) {
+      found = false;
+    } else {
+      found = true;
+      result = iter->second;
+    }
+  }
+
+  if (found) {
+    rpc_send_resp(
+      connection,
+      request,
+      (uint8_t*) result.c_str(),
+      result.size(),
+      RpcStatus::Ok
+    );
+  } else {
+    rpc_send_resp(
+      connection,
+      request,
+      NULL,
+      0,
+      RpcStatus::NotFound
+    );
+  }
+}
+
 void handle_rpc_chksum(const Connection* const connection);
 void handle_rpc_delete(const Connection* const connection);
 void handle_rpc_stats(const Connection* const connection);
@@ -109,6 +143,8 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
       handle_rpc_ping(connection, &message);
     } else if (strncmp(message.header.method, "write", 8) == 0) {
       handle_rpc_write(connection, &message);
+    } else if (strncmp(message.header.method, "read", 8) == 0) {
+      handle_rpc_read(connection, &message);
     } else if (strncmp(message.header.method, "quit", 8) == 0) {
       // On quit(), close socket.
       rpc_send_resp(

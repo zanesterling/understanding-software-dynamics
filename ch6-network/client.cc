@@ -87,6 +87,8 @@ Args parse_args(int argc, char** argv) {
     args.command = Command::Ping;
   } else if (strcmp(args.command_str, "write") == 0) {
     args.command = Command::Write;
+  } else if (strcmp(args.command_str, "read") == 0) {
+    args.command = Command::Read;
   } else if (strcmp(args.command_str, "quit") == 0) {
     args.command = Command::Quit;
   } else {
@@ -204,6 +206,13 @@ int main(int argc, char** argv) {
           );
           body = (uint8_t*) write_req;
           n_bytes = write_req->full_len();
+          break;
+        }
+
+        case Command::Read: {
+          // TODO: full key,val gen logic
+          body = (uint8_t*) args.key_config.base;
+          n_bytes = strlen(args.key_config.base);
           break;
         }
 

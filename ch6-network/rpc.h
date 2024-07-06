@@ -42,7 +42,8 @@ enum class RpcMessageType : uint16_t {
 
 enum class RpcStatus : uint32_t {
   Ok,
-  BadArg
+  BadArg,
+  NotFound,
 };
 
 struct RPCHeader {

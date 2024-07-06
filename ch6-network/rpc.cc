@@ -31,9 +31,10 @@ const char* message_type_str(RpcMessageType message_type) {
 
 const char* status_str(RpcStatus status) {
   switch (status) {
-    case RpcStatus::Ok:     return "OK";
-    case RpcStatus::BadArg: return "BAD_ARG";
-    default:                return "UNRECOGNIZED";
+    case RpcStatus::Ok:       return "OK";
+    case RpcStatus::BadArg:   return "BAD_ARG";
+    case RpcStatus::NotFound: return "NOT_FOUND";
+    default:                  return "UNRECOGNIZED";
   }
 }
 
