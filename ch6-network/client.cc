@@ -9,15 +9,9 @@
 #include "network.h"
 #include "rpc.h"
 
-struct KeyConfig {
-  const char* key_base;
-  bool increment_base;
-  size_t padded_length;
-};
-
-struct ValueConfig {
-  const char* value_base;
-  bool increment_base;
+struct StrConfig {
+  const char* base;
+  bool increment_base = false;
   size_t padded_length;
 };
 
@@ -30,8 +24,8 @@ struct Args {
   bool seed1 = false;
   bool verbose = false;
   char* command;
-  KeyConfig key_config;
-  ValueConfig value_config;
+  StrConfig key_config;
+  StrConfig value_config;
 };
 
 void usage() {
@@ -80,6 +74,46 @@ Args parse_args(int argc, char** argv) {
 
   if (next_arg >= argc) usage(), exit(1);
   args.command = argv[next_arg++];
+
+  for (; next_arg < argc; ++next_arg) {
+    if (strcmp("-key", argv[next_arg]) == 0) {
+      if (next_arg+1 >= argc) usage(), exit(1);
+      args.key_config.base = argv[next_arg+1];
+      next_arg += 2;
+      if (next_arg < argc && strcmp(argv[next_arg], "+") == 0) {
+        args.key_config.increment_base = true;
+        ++next_arg;
+      }
+      if (next_arg < argc && argv[next_arg][0] != '-') {
+        args.key_config.padded_length = strtol(argv[next_arg+3], NULL, 10);
+        ++next_arg;
+      } else {
+        args.key_config.padded_length = strlen(args.key_config.base);
+      }
+      --next_arg;
+      continue;
+    } else if (strcmp("-value", argv[next_arg]) == 0) {
+      if (next_arg+1 >= argc) usage(), exit(1);
+      args.value_config.base = argv[next_arg+1];
+      next_arg += 2;
+      if (next_arg < argc && strcmp(argv[next_arg], "+") == 0) {
+        args.value_config.increment_base = true;
+        ++next_arg;
+      }
+      if (next_arg < argc && argv[next_arg][0] != '-') {
+        args.value_config.padded_length = strtol(argv[next_arg+3], NULL, 10);
+        ++next_arg;
+      } else {
+        args.value_config.padded_length = strlen(args.value_config.base);
+      }
+      --next_arg;
+      continue;
+    } else {
+      fprintf(stderr, "unrecognized arg: %s\n", argv[next_arg]);
+      usage();
+      exit(1);
+    }
+  }
 
   return args;
 }
