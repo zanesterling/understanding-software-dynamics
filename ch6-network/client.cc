@@ -6,13 +6,14 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "my_rpc.h"
 #include "network.h"
 #include "rpc.h"
 
 struct StrConfig {
-  const char* base;
+  const char* base = NULL;
   bool increment_base = false;
-  size_t padded_length;
+  size_t padded_length = 0;
 };
 
 struct Args {
@@ -76,6 +77,7 @@ Args parse_args(int argc, char** argv) {
   args.command = argv[next_arg++];
 
   for (; next_arg < argc; ++next_arg) {
+    // TODO: factor out common logic.
     if (strcmp("-key", argv[next_arg]) == 0) {
       if (next_arg+1 >= argc) usage(), exit(1);
       args.key_config.base = argv[next_arg+1];
@@ -115,6 +117,20 @@ Args parse_args(int argc, char** argv) {
     }
   }
 
+  // Done parsing, let's validate.
+  if (strcmp(args.command, "write") == 0) {
+    bool fail = false;
+    if (NULL == args.key_config.base) {
+      fprintf(stderr, "write command expects -key arg\n");
+      fail = true;
+    }
+    if (NULL == args.value_config.base) {
+      fprintf(stderr, "write command expects -value arg\n");
+      fail = true;
+    }
+    if (fail) exit(1);
+  }
+
   return args;
 }
 
@@ -147,8 +163,26 @@ int main(int argc, char** argv) {
     }
 
     for (unsigned int j = 0; j < args.rpcs_per_conn; ++j) {
-      const uint8_t* body = (uint8_t*)"foo bar baz";
-      size_t n_bytes = 12;
+      const uint8_t* body = NULL;
+      size_t n_bytes = 0;
+      if (strcmp(args.command, "ping") == 0) {
+        // TODO: full val gen logic
+        body = (uint8_t*)"foo bar baz";
+        n_bytes = 12;
+      } else if (strcmp(args.command, "quit") == 0) {
+      } else if (strcmp(args.command, "write") == 0) {
+        // TODO: full key,val gen logic
+        const auto write_req = WriteRequest::Make(
+          args.key_config.base,
+          strlen(args.key_config.base),
+          args.value_config.base,
+          strlen(args.value_config.base)
+        );
+        body = (uint8_t*) write_req;
+        n_bytes = write_req->full_len();
+      } else {
+        fprintf(stderr, "unrecognized command: \"%s\"\n", args.command);
+      }
       rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, args.command);
 
       RPCMessage response;
@@ -157,6 +191,7 @@ int main(int argc, char** argv) {
         exit(1);
       }
       if (args.verbose) response.pretty_print();
+      free(response.body);
 
       uint64_t now;
       do {
