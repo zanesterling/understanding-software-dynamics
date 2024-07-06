@@ -14,10 +14,11 @@ struct LenStr {
 };
 
 // Stored in the RPCMessage::body.
-struct WriteRequest {
-  uint8_t key_len;
-  uint32_t value_len;
+class WriteRequest {
+  uint8_t key_len_;
+  uint32_t value_len_;
 
+public:
   // Parses an RPC body into a WriteRequest, returning a non-owning
   // pointer to the request.
   //
@@ -29,5 +30,7 @@ struct WriteRequest {
   // value, respectively.
   char* key();
   char* value();
+  size_t key_len();
+  size_t value_len();
 };
 
