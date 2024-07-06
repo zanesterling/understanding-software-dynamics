@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "print_hex.h"
 #include "network.h"
 #include "rpc.h"
 
@@ -87,10 +88,7 @@ void RPCHeader::pretty_print() {
 void RPCMessage::pretty_print() {
   this->mark.pretty_print();
   this->header.pretty_print();
-  for (size_t i = 0; i < this->mark.data_len; ++i) {
-    printf(" %02x", this->body[i]);
-  }
-  putc('\n', stdout);
+  print_hex(this->body, this->mark.data_len);
 }
 
 int RPCMessage::send(int sock_fd) {
