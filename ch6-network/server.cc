@@ -6,13 +6,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <unordered_map>
 
+#include "my_rpc.h"
 #include "network.h"
 #include "rpc.h"
+#include "spinlock.h"
 
 #define hton16 htons
 #define hton32 htonl
@@ -21,6 +25,9 @@
 
 bool verbose = false;
 #define VERBOSE(x) if (verbose) { x; }
+
+LockAndHist lock;
+std::unordered_map<std::string, std::string> keystore;
 
 struct ListenArgs {
   const int port;
@@ -46,7 +53,23 @@ void handle_rpc_ping(const Connection* const connection, RPCMessage* request) {
   );
 }
 
-void handle_rpc_write(const Connection* const connection);
+void handle_rpc_write(const Connection* const connection, RPCMessage* request) {
+  SpinLock spinlock(&lock);
+
+  WriteRequest* write_req = WriteRequest::FromBody(request->body, request->mark.data_len);
+  std::string key(write_req->key(), write_req->key_len);
+  std::string value(write_req->value(), write_req->value_len);
+  keystore.emplace(key, value);
+
+  rpc_send_resp(
+    connection,
+    request,
+    NULL,
+    0,
+    RPC_STATUS_OK
+  );
+}
+
 void handle_rpc_read(const Connection* const connection);
 void handle_rpc_chksum(const Connection* const connection);
 void handle_rpc_delete(const Connection* const connection);
@@ -192,6 +215,7 @@ Args parse_args(int argc, const char* const* argv) {
 int main(int argc, char** argv) {
   Args args = parse_args(argc, argv);
   verbose = args.verbose;
+  memset(&lock, 0, sizeof(LockAndHist));
 
   VERBOSE(printf(
     "Starting rpc_listen() threads for port ids [%d,%d].\n",
