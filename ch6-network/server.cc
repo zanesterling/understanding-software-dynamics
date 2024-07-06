@@ -63,6 +63,7 @@ void handle_rpc_write(const Connection* const connection, RPCMessage* request) {
       connection->server_port
     );
     rpc_send_resp(connection, request, NULL, 0, RpcStatus::BadArg);
+    return;
   }
   std::string key(write_req->key(), write_req->key_len());
   std::string value(write_req->value(), write_req->value_len());
