@@ -8,17 +8,17 @@ clean:
 	rm -f client server *.o
 
 rpc.o: rpc.h rpc.cc print_hex.h
-	g++ -O2 -c rpc.cc
+	g++ -O2 -Wall -Werror -c rpc.cc
 
 network.o: network.h network.cc
-	g++ -O2 -c network.cc
+	g++ -O2 -Wall -Werror -c network.cc
 
 spinlock.o: spinlock.h spinlock.cc
-	g++ -O2 -c spinlock.cc
+	g++ -O2 -Wall -Werror -c spinlock.cc
 
 my_rpc.o: my_rpc.h my_rpc.cc
-	g++ -O2 -c my_rpc.cc
+	g++ -O2 -Wall -Werror -c my_rpc.cc
 
 print_hex.o: print_hex.h print_hex.cc
-	g++ -O2 -c print_hex.cc
+	g++ -O2 -Wall -Werror -c print_hex.cc
 

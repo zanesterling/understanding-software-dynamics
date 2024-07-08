@@ -119,7 +119,7 @@ int rpc_send_req(
   message.mark.signature = MARK_SIGNATURE;
   message.mark.header_len = sizeof(RPCHeader);
   message.mark.data_len = n_bytes;
-  message.mark.checksum;
+  // TODO: Set message.mark.checksum.
   message.header.rpc_id = next_rpc_id++;
   message.header.parent = parent_rpc;
 
@@ -136,7 +136,14 @@ int rpc_send_req(
   size_t mark_and_header = sizeof(RPCMark) + sizeof(RPCHeader);
   message.header.req_len_log = ilog2(n_bytes + mark_and_header);
   message.header.message_type = RpcMessageType::Request;
+
+  // GCC gets scared because we're leaving out the null byte.
+  // Give it soothing headpats.
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wstringop-truncation"
   strncpy(message.header.method, method, 8);
+  #pragma GCC diagnostic pop
+
   message.header.status = RpcStatus::Ok;
 
   size_t written_bytes = write(connection->sock_fd, &message, mark_and_header);
@@ -161,7 +168,7 @@ int rpc_send_resp(
   memcpy(&message, request, sizeof(RPCMessage));
   message.body = body;
   message.mark.data_len = n_bytes;
-  message.mark.checksum;
+  // TODO: Set message.mark.checksum.
 
   if (-1 == now_usec(&message.header.res_send_time_us)) return -1;
   size_t mark_and_header = sizeof(RPCMark) + sizeof(RPCHeader);
