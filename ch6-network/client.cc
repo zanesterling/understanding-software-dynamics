@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "log.h"
 #include "my_rpc.h"
 #include "network.h"
 #include "rpc.h"
@@ -261,7 +262,7 @@ int main(int argc, char** argv) {
         fprintf(stderr, "failed to receive the response: %m\n");
         exit(1);
       }
-      log(log_fd, &message);
+      log(log_fd, &response);
       if (args.verbose) response.pretty_print();
       free(response.body);
 
