@@ -15,6 +15,7 @@ int log(int log_fd, const RPCMessage* message) {
   if (message->body != NULL) {
     memcpy(log_body, message->body, MIN(24, message->mark.data_len));
   }
+  if (-1 == write(log_fd, log_body, 24)) return -1;
   return 0;
 }
 

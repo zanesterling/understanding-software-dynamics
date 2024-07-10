@@ -4,6 +4,9 @@ client: client.cc rpc.o network.o my_rpc.o print_hex.o log.o
 server: server.cc rpc.o network.o spinlock.o my_rpc.o print_hex.o log.o
 	g++ -O2 -pthread -Wall -Werror server.cc network.o rpc.o spinlock.o my_rpc.o print_hex.o log.o -o server
 
+dumplogfile: dumplogfile.cc rpc.o print_hex.o log.o network.o
+	g++ -O2 -Wall -Werror dumplogfile.cc rpc.o print_hex.o log.o network.o -o dumplogfile
+
 clean:
 	rm -f client server *.o
 
