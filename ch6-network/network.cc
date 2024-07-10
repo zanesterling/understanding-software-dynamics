@@ -6,6 +6,10 @@
 #include <unistd.h>
 #include <strings.h>
 
+#ifndef ENOANO
+#define ENOANO 53
+#endif
+
 int tcp_connect(
   const char* const server_addr_str,
   const int server_port,
