@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -182,8 +183,18 @@ LenStr gen_str(const StrConfig* const config, const int n) {
   return LenStr(length, data);
 }
 
+const char* const log_fn = "client.log";
+
 int main(int argc, char** argv) {
   Args args = parse_args(argc, argv);
+
+  // Open logfile.
+  constexpr mode_t RW_MODE = S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH;
+  int log_fd = creat(log_fn, RW_MODE);
+  if (-1 == log_fd) {
+    fprintf(stderr, "failed to open log file \"%s\": %m\n", log_fn);
+    exit(1);
+  }
 
   for (unsigned int i = 0; i < args.n_conns; ++i) {
     Connection connection;
@@ -242,7 +253,7 @@ int main(int argc, char** argv) {
           fprintf(stderr, "unrecognized command: \"%s\"\n", args.command_str);
           exit(1);
       }
-      rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, args.command_str);
+      rpc_send_req(&connection, body, n_bytes, /*parent_rpc=*/0, args.command_str, log_fd);
       free(body);
 
       RPCMessage response;

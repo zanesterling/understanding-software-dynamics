@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "log.h"
 #include "print_hex.h"
 #include "network.h"
 #include "rpc.h"
@@ -108,12 +109,14 @@ static inline uint8_t ilog2(const uint32_t x) {
   return y;
 }
 
+// If log_fd < 0, does not log.
 int rpc_send_req(
   const Connection* const connection,
   const uint8_t* const body,
   const size_t n_bytes,
   const uint32_t parent_rpc,
-  const char* const method
+  const char* const method,
+  int log_fd
 ) {
   RPCMessage message;
   message.mark.signature = MARK_SIGNATURE;
@@ -154,6 +157,8 @@ int rpc_send_req(
   if (written_bytes != n_bytes) {
     return -1;
   }
+
+  if (log_fd >= 0) log(log_fd, &message);
   return 0;
 }
 
@@ -162,7 +167,8 @@ int rpc_send_resp(
   const RPCMessage* request,
   uint8_t* body,
   size_t n_bytes,
-  RpcStatus status
+  RpcStatus status,
+  int log_fd
 ) {
   RPCMessage message;
   memcpy(&message, request, sizeof(RPCMessage));
@@ -184,6 +190,8 @@ int rpc_send_resp(
   if (written_bytes != n_bytes) {
     return -1;
   }
+
+  if (log_fd >= 0) log(log_fd, &message);
   return 0;
 }
 

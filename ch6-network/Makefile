@@ -1,13 +1,13 @@
-client: client.cc rpc.o network.o my_rpc.o print_hex.o
-	g++ -O2 -pthread -Wall -Werror client.cc network.o rpc.o my_rpc.o print_hex.o -o client
+client: client.cc rpc.o network.o my_rpc.o print_hex.o log.o
+	g++ -O2 -pthread -Wall -Werror client.cc network.o rpc.o my_rpc.o print_hex.o log.o -o client
 
-server: server.cc rpc.o network.o spinlock.o my_rpc.o print_hex.o
-	g++ -O2 -pthread -Wall -Werror server.cc network.o rpc.o spinlock.o my_rpc.o print_hex.o -o server
+server: server.cc rpc.o network.o spinlock.o my_rpc.o print_hex.o log.o
+	g++ -O2 -pthread -Wall -Werror server.cc network.o rpc.o spinlock.o my_rpc.o print_hex.o log.o -o server
 
 clean:
 	rm -f client server *.o
 
-rpc.o: rpc.h rpc.cc print_hex.h
+rpc.o: rpc.h rpc.cc print_hex.h log.h network.h
 	g++ -O2 -Wall -Werror -c rpc.cc
 
 network.o: network.h network.cc
@@ -21,4 +21,7 @@ my_rpc.o: my_rpc.h my_rpc.cc
 
 print_hex.o: print_hex.h print_hex.cc
 	g++ -O2 -Wall -Werror -c print_hex.cc
+
+log.o: log.h log.cc rpc.h
+	g++ -O2 -Wall -Werror -c log.cc
 

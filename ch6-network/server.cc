@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
@@ -44,7 +45,8 @@ enum class RpcAction {
 
 void handle_rpc_ping(
   const Connection* const connection,
-  const RPCMessage* const request
+  const RPCMessage* const request,
+  const int log_fd
 ) {
   // Echo the request back to the client.
   rpc_send_resp(
@@ -52,13 +54,15 @@ void handle_rpc_ping(
     request,
     request->body,
     request->mark.data_len,
-    RpcStatus::Ok
+    RpcStatus::Ok,
+    log_fd
   );
 }
 
 void handle_rpc_write(
   const Connection* const connection,
-  const RPCMessage* const request
+  const RPCMessage* const request,
+  const int log_fd
 ) {
   WriteRequest* write_req = WriteRequest::FromBody(request->body, request->mark.data_len);
   if (NULL == write_req) {
@@ -66,7 +70,7 @@ void handle_rpc_write(
       stderr, "%d: failed to parse write request\n",
       connection->server_port
     );
-    rpc_send_resp(connection, request, NULL, 0, RpcStatus::BadArg);
+    rpc_send_resp(connection, request, NULL, 0, RpcStatus::BadArg, log_fd);
     return;
   }
   std::string key(write_req->key(), write_req->key_len());
@@ -82,11 +86,16 @@ void handle_rpc_write(
     request,
     NULL,
     0,
-    RpcStatus::Ok
+    RpcStatus::Ok,
+    log_fd
   );
 }
 
-void handle_rpc_read(const Connection* const connection, RPCMessage* request) {
+void handle_rpc_read(
+  const Connection* const connection,
+  const RPCMessage* const request,
+  const int log_fd
+) {
   const std::string key((char*)request->body, request->mark.data_len);
 
   bool found;
@@ -108,7 +117,8 @@ void handle_rpc_read(const Connection* const connection, RPCMessage* request) {
       request,
       (uint8_t*) result.c_str(),
       result.size(),
-      RpcStatus::Ok
+      RpcStatus::Ok,
+      log_fd
     );
   } else {
     rpc_send_resp(
@@ -116,7 +126,8 @@ void handle_rpc_read(const Connection* const connection, RPCMessage* request) {
       request,
       NULL,
       0,
-      RpcStatus::NotFound
+      RpcStatus::NotFound,
+      log_fd
     );
   }
 }
@@ -126,7 +137,10 @@ void handle_rpc_delete(const Connection* const connection);
 void handle_rpc_stats(const Connection* const connection);
 void handle_rpc_reset(const Connection* const connection);
 
-RpcAction handle_rpc_conn(const Connection* const connection) {
+RpcAction handle_rpc_conn(
+  const Connection* const connection,
+  const int log_fd
+) {
   const uint16_t port = connection->server_port;
 
   while (true) {
@@ -140,11 +154,11 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
 
     // Process command.
     if (strncmp(message.header.method, "ping", 8) == 0) {
-      handle_rpc_ping(connection, &message);
+      handle_rpc_ping(connection, &message, log_fd);
     } else if (strncmp(message.header.method, "write", 8) == 0) {
-      handle_rpc_write(connection, &message);
+      handle_rpc_write(connection, &message, log_fd);
     } else if (strncmp(message.header.method, "read", 8) == 0) {
-      handle_rpc_read(connection, &message);
+      handle_rpc_read(connection, &message, log_fd);
     } else if (strncmp(message.header.method, "quit", 8) == 0) {
       // On quit(), close socket.
       rpc_send_resp(
@@ -152,7 +166,8 @@ RpcAction handle_rpc_conn(const Connection* const connection) {
         &message,
         NULL,
         0,
-        RpcStatus::Ok
+        RpcStatus::Ok,
+        log_fd
       );
       free(message.body);
       return RpcAction::QUIT;
@@ -179,6 +194,15 @@ void* rpc_listen(void* void_args) {
   }
   VERBOSE(printf("%d: listening!\n", args->port));
 
+  char log_fn[128];
+  snprintf(log_fn, 128, "server-%d.log", args->port);
+  constexpr mode_t RW_MODE = S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH;
+  int log_fd = creat(log_fn, RW_MODE);
+  if (-1 == log_fd) {
+    fprintf(stderr, "failed to open log file \"%s\": %m\n", log_fn);
+    exit(1);
+  }
+
   while (true) {
     Connection connection;
     tcp_accept(listen_sock_fd, &connection);
@@ -198,7 +222,7 @@ void* rpc_listen(void* void_args) {
     ));
 
     // Handle as many RPCs as they send.
-    const auto action = handle_rpc_conn(&connection);
+    const auto action = handle_rpc_conn(&connection, log_fd);
     close(connection.sock_fd);
     // TODO: Actually, quit() should kill the whole server.
     if (action == RpcAction::QUIT) break;
@@ -206,6 +230,7 @@ void* rpc_listen(void* void_args) {
 
   VERBOSE(printf("%d: closing, goodbye!\n", args->port));
   close(listen_sock_fd);
+  close(log_fd);
   return NULL;
 }
 

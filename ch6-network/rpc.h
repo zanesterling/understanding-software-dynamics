@@ -103,7 +103,8 @@ int rpc_send_req(
   const uint8_t* body,
   size_t n_bytes,
   uint32_t parent_rpc,
-  const char* method
+  const char* method,
+  int log_fd
 );
 
 int rpc_send_resp(
@@ -111,7 +112,8 @@ int rpc_send_resp(
   const RPCMessage* request,
   uint8_t* body,
   size_t n_bytes,
-  RpcStatus status
+  RpcStatus status,
+  int log_fd
 );
 
 int rpc_recv_req(const Connection* connection, RPCMessage* request);
