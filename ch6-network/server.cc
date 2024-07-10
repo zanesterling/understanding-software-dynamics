@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <unordered_map>
 
+#include "log.h"
 #include "my_rpc.h"
 #include "network.h"
 #include "rpc.h"
@@ -147,6 +148,7 @@ RpcAction handle_rpc_conn(
     VERBOSE(printf("%d: listening for message\n", port));
     RPCMessage message;
     if (-1 == rpc_recv_req(connection, &message)) break;
+    log(log_fd, &message);
     VERBOSE({
       printf("%d ", port);
       message.pretty_print();

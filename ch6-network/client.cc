@@ -261,6 +261,7 @@ int main(int argc, char** argv) {
         fprintf(stderr, "failed to receive the response: %m\n");
         exit(1);
       }
+      log(log_fd, &message);
       if (args.verbose) response.pretty_print();
       free(response.body);
 
