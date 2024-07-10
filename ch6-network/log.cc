@@ -4,10 +4,9 @@
 #include <sys/param.h>
 #include <unistd.h>
 
-// Logs the mark, header, and the first 24 bytes of the body, truncated or
+// Logs the header and the first 24 bytes of the body, truncated or
 // zero-extended to fit a length of 24.
 int log(int log_fd, const RPCMessage* message) {
-  if (-1 == write(log_fd, &message->mark, sizeof(message->mark))) return -1;
   if (-1 == write(log_fd, &message->header, sizeof(message->header))) {
     return -1;
   }
