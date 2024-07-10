@@ -40,11 +40,15 @@ enum class RpcMessageType : uint16_t {
   Response
 };
 
+const char* message_type_str(RpcMessageType message_type);
+
 enum class RpcStatus : uint32_t {
   Ok,
   BadArg,
   NotFound,
 };
+
+const char* status_str(RpcStatus status);
 
 struct RPCHeader {
   // Unique ID number for each outstanding request.

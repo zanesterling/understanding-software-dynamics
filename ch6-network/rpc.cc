@@ -44,10 +44,10 @@ void RPCHeader::pretty_print() {
     "RPCHeader:\n"
     "\trpc_id:  0x%x\n"
     "\tparent:  0x%x\n"
-    "\tt1:      %lus %luus\n"
-    "\tt2:      %lus %luus\n"
-    "\tt3:      %lus %luus\n"
-    "\tt4:      %lus %luus\n"
+    "\tt1:      %llus %lluus\n"
+    "\tt2:      %llus %lluus\n"
+    "\tt3:      %llus %lluus\n"
+    "\tt4:      %llus %lluus\n"
     "\tclient:  %d.%d.%d.%d:%d\n"
     "\tserver:  %d.%d.%d.%d:%d\n"
     "\treq_len: 2^%u\n"
@@ -101,12 +101,22 @@ int RPCMessage::send(int sock_fd) {
 uint32_t next_rpc_id = 1;
 
 static inline uint8_t ilog2(const uint32_t x) {
+#ifdef __x86_64__
   uint32_t y;
   asm("\tbsr %1, %0\n"
      : "=r"(y)
      : "r" (x)
   );
   return y;
+#else
+	uint32_t ret = 0;
+	uint32_t pow = 1;
+	while (pow < x) {
+		++ret;
+		pow <<= 1;
+	}
+	return ret;
+#endif
 }
 
 // If log_fd < 0, does not log.
