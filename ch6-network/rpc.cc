@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
@@ -44,10 +45,10 @@ void RPCHeader::pretty_print() {
     "RPCHeader:\n"
     "\trpc_id:  0x%x\n"
     "\tparent:  0x%x\n"
-    "\tt1:      %llus %lluus\n"
-    "\tt2:      %llus %lluus\n"
-    "\tt3:      %llus %lluus\n"
-    "\tt4:      %llus %lluus\n"
+    "\tt1:      %" PRIu64 "s %" PRIu64 "us\n"
+    "\tt2:      %" PRIu64 "s %" PRIu64 "us\n"
+    "\tt3:      %" PRIu64 "s %" PRIu64 "us\n"
+    "\tt4:      %" PRIu64 "s %" PRIu64 "us\n"
     "\tclient:  %d.%d.%d.%d:%d\n"
     "\tserver:  %d.%d.%d.%d:%d\n"
     "\treq_len: 2^%u\n"
