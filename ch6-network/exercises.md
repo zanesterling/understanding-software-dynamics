@@ -30,6 +30,30 @@ on the difference.*
 Assume ethernet is 1Gb/s ~= 100MB/s. A ping req/resp is ~100B, so transmission should be
 100B / 100MB/s = 1us each direction.
 
+Hmm, but it took 150-280us instead. What gives?
+
+The logs show that the actual on-the-wire transmission time was right on the
+money at my estimates: 1us. But 99.5% of the time is not spent on the wire. That
+means it must be either:
+- hanging out in kernel buffers waiting to be sent,
+- hanging out in kernel buffers waiting to be processed,
+- or interrupted by threading contention.
+
+Hmm, but by default Linux seems to give you ~10ms before preemption. It would be
+surprising if both client and server hit a preemption in a transaction that only
+takes 0.5ms.
+
+Could a clock shift explain it? No, I think a clock shift would produce a
+lopsided output where one or the other of the two rabbit ears is clipped.
+Instead we see mostly balanced ears.
+
+I guess we have an SSH connection open to each of the servers. It's possible
+that that's interfering with the network stack I suppose. But the load is so
+light, contention would be surprising.
+
+Maybe the network stack is waiting around to gather stuff up to make one big
+packet because the payload is so small.
+
 ## Exercise 6.2
 *How long, in milliseconds, did you estimate for the write requests and their
 response message transmissions? How long do they actually take? Briefly comment
@@ -38,6 +62,10 @@ on the difference.*
 Transmission of 1MB req is ~10ms.
 Transmission of 100B resp is ~1us.
 
+In reality req took 13ms, with ~8ms on the wire.
+Resp took 240us, with ~1us on the wire. A surprise, but consistent with the ping
+results.
+
 ## Exercise 6.3
 *How long, in milliseconds, did you estimate for the read requests and their
 response message transmissions? How long do they actually take? Briefly comment
@@ -45,4 +73,12 @@ on the difference.*
 
 Transmission of 100B req is ~1us.
 Transmission of 1MB resp is ~10ms.
+
+In reality both req and resp took ~13ms.
+
+Why is the req taking so long? We're just sending the key, right? It shouldn't
+be that big.
+
+I'm really not sure. Looking through the source code I don't see any reason why
+we would be transmitting that much data.
 
